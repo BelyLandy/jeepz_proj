@@ -368,6 +368,72 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: Ring
+      rect:
+        serializedVersion: 2
+        x: 28
+        y: 28
+        width: 8
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: faa96586923432a488bbcb187ead075e
+      internalID: 1855833893
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Pager
+      rect:
+        serializedVersion: 2
+        x: 24
+        y: 4
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b6c18d99d722d3f49bd68546d2bb6a89
+      internalID: 677670938
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Hand_For_Whip
+      rect:
+        serializedVersion: 2
+        x: 66
+        y: 4
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c7a849ca2e303f44eae3602940b04ebb
+      internalID: 1381156124
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
@@ -386,6 +452,7 @@ TextureImporter:
     nameFileIdTable:
       Body: -6592126947735100984
       Foot: 4730927579225330009
+      Hand_For_Whip: 1381156124
       Hand_Left: -9078339573486643485
       Hand_Right: -2691991322218672439
       Head: 1113203338798193616
@@ -393,6 +460,8 @@ TextureImporter:
       Join: 6026957964014074994
       Knee_1: -7441049829532320476
       Knee_2: 3800726788558204195
+      Pager: 677670938
+      Ring: 1855833893
       Shoulder_Left: 571520288436305674
       Shoulder_Right: -2018413467118220387
   mipmapLimitGroupName: 

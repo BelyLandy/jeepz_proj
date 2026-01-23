@@ -36,7 +36,7 @@ ScriptedImporter:
     spriteMeshType: 1
     alignment: 0
     spritePivot: {x: 0.5, y: 0.5}
-    spritePixelsToUnits: 64
+    spritePixelsToUnits: 32
     spriteBorder: {x: 0, y: 0, z: 0, w: 0}
     spriteGenerateFallbackPhysicsShape: 0
     generateCubemap: 6
@@ -102,7 +102,7 @@ ScriptedImporter:
     generateIndividualEvents: 1
     generateSpriteAtlas: 1
   importFileNodeState: 1
-  platformSettingsDirtyTick: 638963422726028525
+  platformSettingsDirtyTick: 639046398003641058
   textureAssetName: 
   singleSpriteImportData:
   - name: 
@@ -135,8 +135,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 115
-      y: 81
+      x: 110
+      y: 84
       width: 8
       height: 8
     spriteID: bc44a2ca6c5e425439242c099ace3df1
@@ -147,7 +147,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 115, y: 81}
+    uvTransform: {x: 110, y: 84}
   - name: Hip_Left
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -156,8 +156,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 4
-      y: 81
+      x: 85
+      y: 59
       width: 16
       height: 16
     spriteID: e36e471389704624eb32257b3565416a
@@ -168,7 +168,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 4, y: 81}
+    uvTransform: {x: 85, y: 59}
   - name: Right_Foot
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -177,7 +177,7 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 4
+      x: 29
       y: 59
       width: 20
       height: 14
@@ -189,7 +189,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 4, y: 59}
+    uvTransform: {x: 29, y: 59}
   - name: Shoulder_Right
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -219,8 +219,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 52
-      y: 81
+      x: 28
+      y: 84
       width: 17
       height: 15
     spriteID: f9278eada88c26f4f936d5a592e16d54
@@ -231,7 +231,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 52, y: 81}
+    uvTransform: {x: 28, y: 84}
   - name: Elbow_Right
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -240,8 +240,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 77
-      y: 81
+      x: 109
+      y: 59
       width: 11
       height: 11
     spriteID: 028146cad247e3f4bb6434bec519fb8d
@@ -252,7 +252,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 77, y: 81}
+    uvTransform: {x: 109, y: 59}
   - name: Hand_Left
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -261,8 +261,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 105
-      y: 4
+      x: 4
+      y: 59
       width: 17
       height: 17
     spriteID: 950220d9677a49a44929b75c9346277d
@@ -273,7 +273,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 105, y: 4}
+    uvTransform: {x: 4, y: 59}
   - name: Elbow_Left
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -282,8 +282,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 96
-      y: 81
+      x: 53
+      y: 84
       width: 11
       height: 11
     spriteID: 8fa4bc9c2c73018479fa97112d611a01
@@ -294,7 +294,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 96, y: 81}
+    uvTransform: {x: 53, y: 84}
   - name: Body
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -366,8 +366,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 98
-      y: 59
+      x: 39
+      y: 38
       width: 8
       height: 8
     spriteID: 2e26b9c99fe1a3147bac2dff8e968a7d
@@ -378,7 +378,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 98, y: 59}
+    uvTransform: {x: 39, y: 38}
   - name: Join_3
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -387,8 +387,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 114
-      y: 59
+      x: 55
+      y: 38
       width: 8
       height: 8
     spriteID: f17730e9a45b1f049844d99de9b025e3
@@ -399,7 +399,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 114, y: 59}
+    uvTransform: {x: 55, y: 38}
   - name: Join_4
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -408,7 +408,7 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 39
+      x: 71
       y: 38
       width: 8
       height: 8
@@ -420,7 +420,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 39, y: 38}
+    uvTransform: {x: 71, y: 38}
   - name: Hip_Right
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -429,8 +429,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 28
-      y: 81
+      x: 4
+      y: 84
       width: 16
       height: 16
     spriteID: 0f01d7a1024093e4a883a3beab5dd30a
@@ -441,7 +441,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 28, y: 81}
+    uvTransform: {x: 4, y: 84}
   - name: Left_Foot
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -450,7 +450,7 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 32
+      x: 57
       y: 59
       width: 20
       height: 14
@@ -462,7 +462,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 32, y: 59}
+    uvTransform: {x: 57, y: 59}
   - name: Knee_Left
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -471,8 +471,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 60
-      y: 59
+      x: 72
+      y: 84
       width: 11
       height: 11
     spriteID: cf3d3cf9d0721f24eba0d838485fd724
@@ -483,7 +483,7 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 60, y: 59}
+    uvTransform: {x: 72, y: 84}
   - name: Knee_Right
     originalName: 
     pivot: {x: 0.5, y: 0.5}
@@ -492,8 +492,8 @@ ScriptedImporter:
     customData: 
     rect:
       serializedVersion: 2
-      x: 79
-      y: 59
+      x: 91
+      y: 84
       width: 11
       height: 11
     spriteID: 7ac3103d6bee3344ea944c9e9d56789a
@@ -504,7 +504,49 @@ ScriptedImporter:
     indices: 
     edges: []
     tessellationDetail: 0
-    uvTransform: {x: 79, y: 59}
+    uvTransform: {x: 91, y: 84}
+  - name: Chlamus
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 105
+      y: 4
+      width: 16
+      height: 22
+    spriteID: f6eb7a855ac9a5c4abf00ad3c69d2597
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 105, y: 4}
+  - name: Ring
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 87
+      y: 38
+      width: 8
+      height: 8
+    spriteID: 190ec109b824e2148a65c673e872e486
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 87, y: 38}
   spriteSheetImportData: []
   tileSetImportData: []
   asepriteLayers:
@@ -549,6 +591,81 @@ ScriptedImporter:
     tileCells: []
     tileSetIndex: 0
     parentIndex: 18
+  - layerIndex: 20
+    uuid:
+      value0: 4061944392
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Join_2
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Join_2
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 60
+        y: 26
+        width: 3
+        height: 3
+      spriteId: 2e26b9c99fe1a3147bac2dff8e968a7d
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
+  - layerIndex: 21
+    uuid:
+      value0: 1333061037
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Join_3
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Join_3
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 33
+        y: 24
+        width: 3
+        height: 3
+      spriteId: f17730e9a45b1f049844d99de9b025e3
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
+  - layerIndex: 22
+    uuid:
+      value0: 929776510
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Join_4
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Join_4
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 60
+        y: 41
+        width: 3
+        height: 3
+      spriteId: 2be5e3da7670c264a9bdbd0b5329d804
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
   - layerIndex: 23
     uuid:
       value0: 2754312474
@@ -574,6 +691,56 @@ ScriptedImporter:
     tileCells: []
     tileSetIndex: 0
     parentIndex: 18
+  - layerIndex: 24
+    uuid:
+      value0: 3151952337
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Hip_Right
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Hip_Right
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 36
+        y: 33
+        width: 11
+        height: 11
+      spriteId: 0f01d7a1024093e4a883a3beab5dd30a
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
+  - layerIndex: 25
+    uuid:
+      value0: 2979747361
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Left_Foot
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Left_Foot
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 23
+        y: 16
+        width: 15
+        height: 9
+      spriteId: 36fffbea30f3f524080492b61fc021f3
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
   - layerIndex: 26
     uuid:
       value0: 3064506010
@@ -595,6 +762,56 @@ ScriptedImporter:
         width: 15
         height: 9
       spriteId: dfd2c13254d5cf4429d050d6050fe13e
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
+  - layerIndex: 27
+    uuid:
+      value0: 2004854566
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Knee_Left
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Knee_Left
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 37
+        y: 25
+        width: 6
+        height: 6
+      spriteId: cf3d3cf9d0721f24eba0d838485fd724
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
+  - layerIndex: 28
+    uuid:
+      value0: 2949480265
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Knee_Right
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Knee_Right
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 58
+        y: 30
+        width: 6
+        height: 6
+      spriteId: 7ac3103d6bee3344ea944c9e9d56789a
     linkedCells: []
     tileCells: []
     tileSetIndex: 0
@@ -751,6 +968,31 @@ ScriptedImporter:
     parentIndex: 18
   - layerIndex: 35
     uuid:
+      value0: 2492667568
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Chlamus
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Chlamus
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 47
+        y: 45
+        width: 11
+        height: 17
+      spriteId: f6eb7a855ac9a5c4abf00ad3c69d2597
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
+  - layerIndex: 36
+    uuid:
       value0: 506711937
       value1: 0
       value2: 0
@@ -774,7 +1016,32 @@ ScriptedImporter:
     tileCells: []
     tileSetIndex: 0
     parentIndex: 18
-  - layerIndex: 36
+  - layerIndex: 37
+    uuid:
+      value0: 3755307329
+      value1: 0
+      value2: 0
+      value3: 0
+    guid: 0
+    name: Ring
+    layerFlags: 3
+    layerType: 0
+    blendMode: 0
+    cells:
+    - name: Ring
+      frameIndex: 0
+      additiveSortOrder: 0
+      cellRect:
+        x: 48
+        y: 55
+        width: 3
+        height: 3
+      spriteId: 190ec109b824e2148a65c673e872e486
+    linkedCells: []
+    tileCells: []
+    tileSetIndex: 0
+    parentIndex: 18
+  - layerIndex: 38
     uuid:
       value0: 1234844207
       value1: 0
@@ -795,181 +1062,6 @@ ScriptedImporter:
         width: 22
         height: 21
       spriteId: 314b8dd7df034c348a880c2012514512
-    linkedCells: []
-    tileCells: []
-    tileSetIndex: 0
-    parentIndex: 18
-  - layerIndex: 20
-    uuid:
-      value0: 4061944392
-      value1: 0
-      value2: 0
-      value3: 0
-    guid: 0
-    name: Join_2
-    layerFlags: 3
-    layerType: 0
-    blendMode: 0
-    cells:
-    - name: Join_2
-      frameIndex: 0
-      additiveSortOrder: 0
-      cellRect:
-        x: 60
-        y: 26
-        width: 3
-        height: 3
-      spriteId: 2e26b9c99fe1a3147bac2dff8e968a7d
-    linkedCells: []
-    tileCells: []
-    tileSetIndex: 0
-    parentIndex: 18
-  - layerIndex: 21
-    uuid:
-      value0: 1333061037
-      value1: 0
-      value2: 0
-      value3: 0
-    guid: 0
-    name: Join_3
-    layerFlags: 3
-    layerType: 0
-    blendMode: 0
-    cells:
-    - name: Join_3
-      frameIndex: 0
-      additiveSortOrder: 0
-      cellRect:
-        x: 33
-        y: 24
-        width: 3
-        height: 3
-      spriteId: f17730e9a45b1f049844d99de9b025e3
-    linkedCells: []
-    tileCells: []
-    tileSetIndex: 0
-    parentIndex: 18
-  - layerIndex: 22
-    uuid:
-      value0: 929776510
-      value1: 0
-      value2: 0
-      value3: 0
-    guid: 0
-    name: Join_4
-    layerFlags: 3
-    layerType: 0
-    blendMode: 0
-    cells:
-    - name: Join_4
-      frameIndex: 0
-      additiveSortOrder: 0
-      cellRect:
-        x: 60
-        y: 41
-        width: 3
-        height: 3
-      spriteId: 2be5e3da7670c264a9bdbd0b5329d804
-    linkedCells: []
-    tileCells: []
-    tileSetIndex: 0
-    parentIndex: 18
-  - layerIndex: 24
-    uuid:
-      value0: 3151952337
-      value1: 0
-      value2: 0
-      value3: 0
-    guid: 0
-    name: Hip_Right
-    layerFlags: 3
-    layerType: 0
-    blendMode: 0
-    cells:
-    - name: Hip_Right
-      frameIndex: 0
-      additiveSortOrder: 0
-      cellRect:
-        x: 36
-        y: 33
-        width: 11
-        height: 11
-      spriteId: 0f01d7a1024093e4a883a3beab5dd30a
-    linkedCells: []
-    tileCells: []
-    tileSetIndex: 0
-    parentIndex: 18
-  - layerIndex: 25
-    uuid:
-      value0: 2979747361
-      value1: 0
-      value2: 0
-      value3: 0
-    guid: 0
-    name: Left_Foot
-    layerFlags: 3
-    layerType: 0
-    blendMode: 0
-    cells:
-    - name: Left_Foot
-      frameIndex: 0
-      additiveSortOrder: 0
-      cellRect:
-        x: 23
-        y: 16
-        width: 15
-        height: 9
-      spriteId: 36fffbea30f3f524080492b61fc021f3
-    linkedCells: []
-    tileCells: []
-    tileSetIndex: 0
-    parentIndex: 18
-  - layerIndex: 27
-    uuid:
-      value0: 2004854566
-      value1: 0
-      value2: 0
-      value3: 0
-    guid: 0
-    name: Knee_Left
-    layerFlags: 3
-    layerType: 0
-    blendMode: 0
-    cells:
-    - name: Knee_Left
-      frameIndex: 0
-      additiveSortOrder: 0
-      cellRect:
-        x: 37
-        y: 25
-        width: 6
-        height: 6
-      spriteId: cf3d3cf9d0721f24eba0d838485fd724
-    linkedCells: []
-    tileCells: []
-    tileSetIndex: 0
-    parentIndex: 18
-  - layerIndex: 28
-    uuid:
-      value0: 2949480265
-      value1: 0
-      value2: 0
-      value3: 0
-    guid: 0
-    name: Knee_Right
-    layerFlags: 3
-    layerType: 0
-    blendMode: 0
-    cells:
-    - name: Knee_Right
-      frameIndex: 0
-      additiveSortOrder: 0
-      cellRect:
-        x: 58
-        y: 30
-        width: 6
-        height: 6
-      spriteId: 7ac3103d6bee3344ea944c9e9d56789a
     linkedCells: []
     tileCells: []
     tileSetIndex: 0
