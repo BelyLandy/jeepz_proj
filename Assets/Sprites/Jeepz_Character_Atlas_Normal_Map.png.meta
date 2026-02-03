@@ -1,0 +1,429 @@
+fileFormatVersion: 2
+guid: 91f4532bc14aee14399f66d81f611622
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -3820251249428618940
+    second: Jeepz_Character_Atlas_Normal_Map_0
+  - first:
+      213: -8385896964972864446
+    second: Jeepz_Character_Atlas_Normal_Map_1
+  - first:
+      213: 1926036506604217273
+    second: Jeepz_Character_Atlas_Normal_Map_2
+  - first:
+      213: -9028507559118308053
+    second: Jeepz_Character_Atlas_Normal_Map_3
+  - first:
+      213: 6497541900400139691
+    second: Jeepz_Character_Atlas_Normal_Map_4
+  - first:
+      213: -1496308900690137418
+    second: Jeepz_Character_Atlas_Normal_Map_5
+  - first:
+      213: 7382330130512414532
+    second: Jeepz_Character_Atlas_Normal_Map_6
+  - first:
+      213: 4723812047571280734
+    second: Jeepz_Character_Atlas_Normal_Map_7
+  - first:
+      213: 3164762946206272933
+    second: Jeepz_Character_Atlas_Normal_Map_8
+  - first:
+      213: -6838142003408670354
+    second: Jeepz_Character_Atlas_Normal_Map_9
+  - first:
+      213: -8385440008849640168
+    second: Jeepz_Character_Atlas_Normal_Map_10
+  - first:
+      213: 8066664476401652351
+    second: Jeepz_Character_Atlas_Normal_Map_11
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 1
+    sRGBTexture: 0
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 0
+  spriteTessellationDetail: -1
+  textureType: 1
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: 4
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_0
+      rect:
+        serializedVersion: 2
+        x: 4
+        y: 4
+        width: 24
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 441a01daabdbbfac0800000000000000
+      internalID: -3820251249428618940
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_1
+      rect:
+        serializedVersion: 2
+        x: 35
+        y: 10
+        width: 25
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 24c14c7042f4f9b80800000000000000
+      internalID: -8385896964972864446
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_2
+      rect:
+        serializedVersion: 2
+        x: 68
+        y: 11
+        width: 24
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9b324988ff7aaba10800000000000000
+      internalID: 1926036506604217273
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_3
+      rect:
+        serializedVersion: 2
+        x: 102
+        y: 6
+        width: 19
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b2df2d6c53c44b280800000000000000
+      internalID: -9028507559118308053
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_4
+      rect:
+        serializedVersion: 2
+        x: 137
+        y: 9
+        width: 13
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bad1196dee7eb2a50800000000000000
+      internalID: 6497541900400139691
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_5
+      rect:
+        serializedVersion: 2
+        x: 169
+        y: 10
+        width: 12
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6beeb1c8bfa0c3be0800000000000000
+      internalID: -1496308900690137418
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_6
+      rect:
+        serializedVersion: 2
+        x: 204
+        y: 12
+        width: 8
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4470bd3f32e437660800000000000000
+      internalID: 7382330130512414532
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_7
+      rect:
+        serializedVersion: 2
+        x: 236
+        y: 12
+        width: 8
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e536239870a5e8140800000000000000
+      internalID: 4723812047571280734
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_8
+      rect:
+        serializedVersion: 2
+        x: 265
+        y: 9
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5ad81f6c12f7beb20800000000000000
+      internalID: 3164762946206272933
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_9
+      rect:
+        serializedVersion: 2
+        x: 296
+        y: 8
+        width: 14
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e61f523f31a0a11a0800000000000000
+      internalID: -6838142003408670354
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_10
+      rect:
+        serializedVersion: 2
+        x: 327
+        y: 10
+        width: 43
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8153b2b6dbee0ab80800000000000000
+      internalID: -8385440008849640168
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Jeepz_Character_Atlas_Normal_Map_11
+      rect:
+        serializedVersion: 2
+        x: 397
+        y: 11
+        width: 39
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f72de2e2a9c82ff60800000000000000
+      internalID: 8066664476401652351
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Jeepz_Character_Atlas_Normal_Map_0: -3820251249428618940
+      Jeepz_Character_Atlas_Normal_Map_1: -8385896964972864446
+      Jeepz_Character_Atlas_Normal_Map_10: -8385440008849640168
+      Jeepz_Character_Atlas_Normal_Map_11: 8066664476401652351
+      Jeepz_Character_Atlas_Normal_Map_2: 1926036506604217273
+      Jeepz_Character_Atlas_Normal_Map_3: -9028507559118308053
+      Jeepz_Character_Atlas_Normal_Map_4: 6497541900400139691
+      Jeepz_Character_Atlas_Normal_Map_5: -1496308900690137418
+      Jeepz_Character_Atlas_Normal_Map_6: 7382330130512414532
+      Jeepz_Character_Atlas_Normal_Map_7: 4723812047571280734
+      Jeepz_Character_Atlas_Normal_Map_8: 3164762946206272933
+      Jeepz_Character_Atlas_Normal_Map_9: -6838142003408670354
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
