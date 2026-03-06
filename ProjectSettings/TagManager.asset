@@ -3,8 +3,7 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 3
-  tags:
-  - Jeepz/Head
+  tags: []
   layers:
   - Default
   - TransparentFX
@@ -12,18 +11,18 @@ TagManager:
   - 
   - Water
   - UI
+  - RT_Quad
+  - Gameplay_Quad
+  - Terrain
   - 
-  - UIOverlay
   - 
-  - ClothNodes
   - 
-  - Character
   - 
-  - Walls
   - 
-  - Cape
   - 
-  - Weapon
+  - 
+  - 
+  - 
   - 
   - 
   - 
@@ -42,11 +41,13 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
-  - name: Walls
-    uniqueID: 3371250125
-    locked: 0
-  - name: Character
-    uniqueID: 504106639
-    locked: 0
   m_RenderingLayers:
   - Default
+  - Light Layer 1
+  - Light Layer 2
+  - Light Layer 3
+  - Light Layer 4
+  - Light Layer 5
+  - Light Layer 6
+  - Light Layer 7
+  - Hero

@@ -1,0 +1,153 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!319 &31900000
+AvatarMask:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: HipsLegs
+  m_Mask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+  m_Elements:
+  - m_Path: 
+    m_Weight: 1
+  - m_Path: Butt_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone
+    m_Weight: 0
+  - m_Path: Butt_Bone/Body_Bone/Body
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Body/Body_Mod
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone/Head_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone/Head_Bone/Eye.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone/Head_Bone/Eye.L_Bone/Eye.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone/Head_Bone/Eye.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone/Head_Bone/Eye.R_Bone/Eye.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone/Head_Bone/Head
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone/Head_Bone/Plumage_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Neck_Bone/Head_Bone/Plumage_Bone/Plumage
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Elbow.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Elbow.L/Elbow.L_Mod
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/IndexPhanax1.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/IndexPhanax1.L_Bone/IndexPhanax1.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/IndexPhanax1.L_Bone/IndexPhanax2.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/IndexPhanax1.L_Bone/IndexPhanax2.L_Bone/IndexPhanax2.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/Palm.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/PinkyPhanax1.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/PinkyPhanax1.L_Bone/PinkyPhanax1.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/PinkyPhanax1.L_Bone/PinkyPhanax2.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/PinkyPhanax1.L_Bone/PinkyPhanax2.L_Bone/PinkyPhanax2.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/Thumb.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Elbow.L_Bone/Palm.L_Bone/Thumb.L_Bone/Thumb.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Forearm.L_Bone/Forearm.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.L_Bone/Shoulder.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Elbow.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Elbow.R/Elbow.R_Mod
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/IndexPhanax1.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/IndexPhanax1.R_Bone/IndexPhanax1.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/IndexPhanax1.R_Bone/IndexPhanax2.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/IndexPhanax1.R_Bone/IndexPhanax2.R_Bone/IndexPhanax2.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/Palm.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/PinkyPhanax1.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/PinkyPhanax1.R_Bone/PinkyPhanax1.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/PinkyPhanax1.R_Bone/PinkyPhanax2.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/PinkyPhanax1.R_Bone/PinkyPhanax2.R_Bone/PinkyPhanax2.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/Thumb.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Elbow.R_Bone/Palm.R_Bone/Thumb.R_Bone/Thumb.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Forearm.R_Bone/Forearm.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Body_Bone/Shoulder.R_Bone/Shoulder.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Butt
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.L_Bone/Haunch.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.L_Bone/Haunch.L_Bone/Haunch.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.L_Bone/Haunch.L_Bone/Knee.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.L_Bone/Haunch.L_Bone/Knee.L_Bone/Foot.L_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.L_Bone/Haunch.L_Bone/Knee.L_Bone/Foot.L_Bone/Foot.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.L_Bone/Haunch.L_Bone/Knee.L_Bone/Knee.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.L_Bone/Haunch.L_Bone/Knee.L_Bone/Knee.L/Knee.L_Mod
+    m_Weight: 0
+  - m_Path: Butt_Bone/Hip.L_Bone/Hip.L
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone/Haunch.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone/Haunch.R_Bone/Haunch.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone/Haunch.R_Bone/Knee.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone/Haunch.R_Bone/Knee.R_Bone/Foot.R_Bone
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone/Haunch.R_Bone/Knee.R_Bone/Foot.R_Bone/Foot.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone/Haunch.R_Bone/Knee.R_Bone/Knee.R
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone/Haunch.R_Bone/Knee.R_Bone/Knee.R/Knee.R_Mod
+    m_Weight: 1
+  - m_Path: Butt_Bone/Hip.R_Bone/Hip.R
+    m_Weight: 1

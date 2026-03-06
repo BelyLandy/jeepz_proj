@@ -1,7 +1,6 @@
 using UnityEngine;
 
 [DisallowMultipleComponent]
-[RequireComponent(typeof(SpriteRenderer))]
 public class LockWorldRotation : MonoBehaviour
 {
     [Header("Refs")]
@@ -12,7 +11,7 @@ public class LockWorldRotation : MonoBehaviour
     [SerializeField] private Vector3 targetWorldEuler = Vector3.zero;
 
     [Header("FlipX")]
-    [SerializeField] private bool enableFlipX = true;
+    [SerializeField] private bool enableFlipX = false;
     [Tooltip("Угол, после которого флип происходит (в градусах).")]
     [SerializeField] private float flipThreshold = 90f;
     [Tooltip("Хистерезис вокруг порога, чтобы избежать дрожания.")]
