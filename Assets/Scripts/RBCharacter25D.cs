@@ -162,10 +162,8 @@ public class RBCharacter25D : MonoBehaviour
     private float slopeLockUntilTime = -999f;
     private bool slopeXLocked;
 
-    // NonAlloc буферы
     private readonly RaycastHit[] castHits = new RaycastHit[16];
 
-    // --- ДОБАВЛЕНО: наружные геттеры для IK/анимации ---
     public bool IsGroundedNow => isGrounded;
     public float LastJumpTime => lastJumpExecutedTime;
     public float RuntimeGravityScale => runtimeGravityScale;
@@ -274,7 +272,6 @@ public class RBCharacter25D : MonoBehaviour
     {
         ApplyExtraGravity();
 
-        // Жёстко держим Z (на случай, если что-то пытается сдвинуть)
         RaycastHit groundHit;
         isGrounded = CheckGrounded(out groundHit);
 
@@ -396,7 +393,6 @@ public class RBCharacter25D : MonoBehaviour
             noRawInput &&
             canHardLockBySpeed;
 
-        // 2.5D: X — ходьба, Y — прыжок, Z фиксируем
         UpdateSlopeXConstraint(shouldLockSlopeX);
 
         float newMoveSpeed;
@@ -724,8 +720,6 @@ public class RBCharacter25D : MonoBehaviour
         onSlope = true;
     }
 
-    // Вариант без GetContacts (чтобы работало в любых версиях Unity):
-    // Проверяем "плоскую землю" через SphereCast вниз.
     bool CheckGrounded(out RaycastHit bestHit)
     {
         bestHit = default;
