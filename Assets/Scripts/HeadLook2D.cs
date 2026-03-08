@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Animations.Rigging; // <- важно
 
 public class HeadLook25D : MonoBehaviour
 {
@@ -6,6 +7,12 @@ public class HeadLook25D : MonoBehaviour
     public Transform[] targets;
     public Transform headBone;
     public RotationAnim rotationAnim;
+
+    [Header("Optional: Spine tracking constraint")]
+    public Rig spineTracking; // <- сюда перетащи SpineTracking (Multi-Rotation Constraint)
+    [Range(0f, 1f)] public float spineWeightWhenSeen = 1f;
+    public float spineWeightUpSpeed = 4f;    // скорость подъёма 0->1
+    public float spineWeightDownSpeed = 6f;  // скорость спуска 1->0
 
     [Header("Look limits (local Z)")]
     public float minZ = -60f;
@@ -31,33 +38,39 @@ public class HeadLook25D : MonoBehaviour
 
     private Transform lastSeenTarget;
 
+    void Awake()
+    {
+        // Чтобы стартовал с нуля (по желанию)
+        if (spineTracking != null)
+            spineTracking.weight = 0f;
+    }
+
     void LateUpdate()
     {
         if (!headBone || !rotationAnim) return;
 
         Transform best = FindBestTarget(out Vector2 bestToTargetWorld);
+        bool hasTarget = best != null;
 
+        // Плавно ведём weight для SpineTracking
+        UpdateSpineWeight(hasTarget);
+
+        // Debug только по смене
         if (debugLogOnSee)
         {
             if (best != null && lastSeenTarget == null)
-            {
                 Debug.Log($"[HeadLook25D] Saw target: {best.name}", best);
-            }
             else if (best != null && lastSeenTarget != best)
-            {
                 Debug.Log($"[HeadLook25D] Switched target: {lastSeenTarget?.name ?? "None"} -> {best.name}", best);
-            }
             else if (best == null && lastSeenTarget != null)
-            {
                 Debug.Log($"[HeadLook25D] Lost target: {lastSeenTarget.name}", lastSeenTarget);
-            }
         }
 
         lastSeenTarget = best;
 
         float desiredZ;
 
-        if (best == null)
+        if (!hasTarget)
         {
             desiredZ = defaultZ;
         }
@@ -75,11 +88,29 @@ public class HeadLook25D : MonoBehaviour
             desiredZ = Mathf.Clamp(z, minZ, maxZ);
         }
 
+        // Меняем только Z локально
         Vector3 e = headBone.localEulerAngles;
         float currentZ = Mathf.DeltaAngle(0f, e.z);
         float newZ = Mathf.LerpAngle(currentZ, desiredZ, smoothSpeed * Time.deltaTime);
 
         headBone.localRotation = Quaternion.Euler(e.x, e.y, newZ);
+    }
+
+    void UpdateSpineWeight(bool hasTarget)
+    {
+        if (spineTracking == null) return;
+
+        float targetW = hasTarget ? spineWeightWhenSeen : 0f;
+
+        float speed = (targetW > spineTracking.weight)
+            ? spineWeightUpSpeed
+            : spineWeightDownSpeed;
+
+        spineTracking.weight = Mathf.MoveTowards(
+            spineTracking.weight,
+            targetW,
+            speed * Time.deltaTime
+        );
     }
 
     Transform FindBestTarget(out Vector2 bestToTargetWorld)

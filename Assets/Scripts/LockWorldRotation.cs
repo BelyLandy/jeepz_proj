@@ -1,10 +1,11 @@
 using UnityEngine;
 
+[DefaultExecutionOrder(10000)]
 [DisallowMultipleComponent]
 public class LockWorldRotation : MonoBehaviour
 {
     [Header("Refs")]
-    [SerializeField] private Transform _parentTransform;
+    [SerializeField] private Transform _flipSourceTransform;
 
     [Header("World Rotation")]
     [SerializeField] private bool enableWorldRotation = true;
@@ -22,56 +23,53 @@ public class LockWorldRotation : MonoBehaviour
     [SerializeField] private float headFlipThreshold = 45f;
 
     private SpriteRenderer _spriteRenderer;
-
     private bool _lastFlipX;
-    private Quaternion _lastParentRotation;
-    private bool _hasLastParentRotation;
 
     private void Awake()
     {
         _spriteRenderer = GetComponent<SpriteRenderer>();
-        if (_parentTransform == null && transform.parent != null)
-            _parentTransform = transform.parent;
+
+        if (_flipSourceTransform == null && transform.parent != null)
+            _flipSourceTransform = transform.parent;
     }
 
     private void LateUpdate()
     {
-        bool parentRotChanged = true;
-        if (_parentTransform != null)
-        {
-            if (_hasLastParentRotation && _lastParentRotation == _parentTransform.rotation)
-                parentRotChanged = false;
+        if (enableWorldRotation)
+            ApplyWorldRotationCompensated();
 
-            _lastParentRotation = _parentTransform.rotation;
-            _hasLastParentRotation = true;
-        }
-
-        if (enableWorldRotation && parentRotChanged)
-            ApplyWorldRotation();
-
-        if (enableFlipX && parentRotChanged)
+        if (enableFlipX)
             ApplyFlipX();
     }
 
-    private void ApplyWorldRotation()
+    private void ApplyWorldRotationCompensated()
     {
-        if (transform.rotation.eulerAngles != targetWorldEuler)
-            transform.rotation = Quaternion.Euler(targetWorldEuler);
+        Quaternion targetWorldRotation = Quaternion.Euler(targetWorldEuler);
+
+        Transform realParent = transform.parent;
+
+        if (realParent != null)
+            transform.localRotation = Quaternion.Inverse(realParent.rotation) * targetWorldRotation;
+        else
+            transform.rotation = targetWorldRotation;
     }
 
     private void ApplyFlipX()
     {
-        if (_spriteRenderer == null || _parentTransform == null)
+        if (_spriteRenderer == null)
             return;
 
-        float y = _parentTransform.eulerAngles.y;
+        Transform source = _flipSourceTransform != null ? _flipSourceTransform : transform.parent;
+        if (source == null)
+            return;
+
+        float y = source.eulerAngles.y;
         float signedY = Mathf.DeltaAngle(0f, y);
 
         float threshold = useHeadOverride ? headFlipThreshold : flipThreshold;
-
-        bool shouldFlip;
         float absY = Mathf.Abs(signedY);
 
+        bool shouldFlip;
         if (_lastFlipX)
             shouldFlip = absY > Mathf.Max(0f, threshold - flipHysteresis);
         else
@@ -86,7 +84,7 @@ public class LockWorldRotation : MonoBehaviour
 
     private void OnTransformParentChanged()
     {
-        _parentTransform = transform.parent;
-        _hasLastParentRotation = false;
+        if (_flipSourceTransform == null)
+            _flipSourceTransform = transform.parent;
     }
 }
