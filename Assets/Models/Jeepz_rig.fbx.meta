@@ -179,11 +179,11 @@ ModelImporter:
     - boneName: Knee.L.Bone
       humanName: LeftFoot
       limit:
-        min: {x: 0, y: 0, z: -45}
-        max: {x: 0, y: 0, z: 45}
+        min: {x: 0, y: -30, z: -50}
+        max: {x: 0, y: 30, z: 0}
         value: {x: 0, y: 0, z: 0}
         length: 0
-        modified: 0
+        modified: 1
     - boneName: Haunch.L.Bone
       humanName: LeftLowerLeg
       limit:
@@ -195,11 +195,11 @@ ModelImporter:
     - boneName: Hip.L.Bone
       humanName: LeftUpperLeg
       limit:
-        min: {x: 0, y: 0, z: -45}
-        max: {x: 0, y: 0, z: 45}
+        min: {x: -60, y: -60, z: -180}
+        max: {x: 60, y: 60, z: 0}
         value: {x: 0, y: 0, z: 0}
         length: 0
-        modified: 0
+        modified: 1
     - boneName: Spine.Bone
       humanName: Spine
       limit:
@@ -235,11 +235,11 @@ ModelImporter:
     - boneName: Forearm.L.Bone
       humanName: LeftUpperArm
       limit:
-        min: {x: 0, y: 0, z: -45}
-        max: {x: 0, y: 0, z: 45}
+        min: {x: -180, y: -100, z: -60}
+        max: {x: 0, y: 100, z: 100}
         value: {x: 0, y: 0, z: 0}
         length: 0
-        modified: 0
+        modified: 1
     - boneName: Elbow.L.Bone
       humanName: LeftLowerArm
       limit:
@@ -288,6 +288,110 @@ ModelImporter:
         value: {x: 0, y: 0, z: 0}
         length: 0
         modified: 0
+    - boneName: Plumage.Bone
+      humanName: Jaw
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: Eye.L.Bone
+      humanName: LeftEye
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: Eye.R.Bone
+      humanName: RightEye
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: ThumbProximal.L.Bone
+      humanName: Left Thumb Proximal
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: IndexProximal.L.Bone
+      humanName: Left Index Proximal
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: IndexIntermediate.L.Bone
+      humanName: Left Index Intermediate
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: LittleProximal.L.Bone
+      humanName: Left Little Proximal
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: LittleIntermediate.L.Bone
+      humanName: Left Little Intermediate
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: ThumbProximal.R.Bone
+      humanName: Right Thumb Proximal
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: IndexProximal.R.Bone
+      humanName: Right Index Proximal
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: IndexIntermediate.R.Bone
+      humanName: Right Index Intermediate
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: LittleProximal.R.Bone
+      humanName: Right Little Proximal
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
+    - boneName: LittleIntermediate.R.Bone
+      humanName: Right Little Intermediate
+      limit:
+        min: {x: 0, y: 0, z: -45}
+        max: {x: 0, y: 0, z: 45}
+        value: {x: 0, y: 0, z: 0}
+        length: 0
+        modified: 0
     skeleton:
     - name: Jeepz_rig(Clone)
       parentName: 
@@ -297,7 +401,7 @@ ModelImporter:
     - name: Hips.Bone
       parentName: Jeepz_rig(Clone)
       position: {x: -0.019089997, y: 1.1819422, z: 0}
-      rotation: {x: 0.7071068, y: -0.70710677, z: -0.00000005960465, w: 0.000000089406974}
+      rotation: {x: 0.5000007, y: -0.5000005, z: -0.4999994, w: 0.49999952}
       scale: {x: 1, y: 1, z: 1}
     - name: Hip.L.Bone
       parentName: Hips.Bone
@@ -447,7 +551,7 @@ ModelImporter:
     - name: Shoulder.L.Bone
       parentName: Spine.Bone
       position: {x: -0.41474324, y: 0.023983654, z: -0.16046502}
-      rotation: {x: -0.42666864, y: 0.68183845, z: -0.28816226, w: -0.51962745}
+      rotation: {x: -0.42666864, y: 0.6818385, z: -0.28816226, w: -0.5196275}
       scale: {x: 1.0000002, y: 1, z: 1.0000001}
     - name: Forearm.L.Bone
       parentName: Shoulder.L.Bone
@@ -644,11 +748,11 @@ ModelImporter:
       position: {x: 0, y: -0.000000015219966, z: 0.0000000037252903}
       rotation: {x: -1.7763568e-15, y: 3.5527133e-15, z: -0.000000029802322, w: 1}
       scale: {x: 1, y: 1, z: 1}
-    armTwist: 0.5
+    armTwist: 0.504
     foreArmTwist: 0.5
     upperLegTwist: 0.5
     legTwist: 0.5
-    armStretch: 0.05
+    armStretch: 0.054
     legStretch: 0.05
     feetSpacing: 0
     globalScale: 1

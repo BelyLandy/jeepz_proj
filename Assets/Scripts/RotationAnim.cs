@@ -10,7 +10,6 @@ public class RotationAnim : MonoBehaviour
 
     private Quaternion desiredRotation;
 
-    // -1 = смотрит влево, +1 = вправо
     public int FacingSign { get; private set; } = +1;
 
     public float InputX => inputX;
