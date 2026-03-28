@@ -13,8 +13,10 @@ public sealed class FrameRateLimiter : MonoBehaviour
     }
 
     [Header("FPS / VSync")]
+    [Tooltip("Целевой FPS. Работает только когда VSync = Off.")]
     [SerializeField] private int targetFPS = 60;
 
+    [Tooltip("Режим вертикальной синхронизации.")]
     [SerializeField] private VSyncMode vSyncMode = VSyncMode.Off;
 
     public int TargetFPS => targetFPS;

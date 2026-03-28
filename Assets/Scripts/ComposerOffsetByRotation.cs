@@ -16,6 +16,7 @@ public class ComposerOffsetByRotation : MonoBehaviour
     [SerializeField] private bool useExtraSmoothing = false;
     [SerializeField] private float baseSmoothSpeed = 5f;
 
+    [Tooltip("X = прогресс поворота 0..1, Y = множитель скорости")]
     [SerializeField]
     private AnimationCurve smoothSpeedByTurnProgress =
         new AnimationCurve(
@@ -53,12 +54,17 @@ public class ComposerOffsetByRotation : MonoBehaviour
 
         float currentYaw = heroTransform.eulerAngles.y;
 
+        // 0 = rightYaw, 1 = leftYaw
         float yawT = GetYawLerp01(currentYaw, rotationAnim.rightYaw, rotationAnim.leftYaw);
 
         Vector3 rawTargetOffset = Vector3.Lerp(rightTargetOffset, leftTargetOffset, yawT);
 
         if (useExtraSmoothing)
         {
+            // Для графика делаем прогресс всегда от 0 -> 1
+            // независимо от направления поворота:
+            // вправо -> progress = 1..0 превращаем в 0..1
+            // влево  -> progress = 0..1 как есть
             float turnProgress = rotationAnim.FacingSign < 0 ? yawT : 1f - yawT;
 
             float curveMultiplier = Mathf.Max(0f, smoothSpeedByTurnProgress.Evaluate(turnProgress));

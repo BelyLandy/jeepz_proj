@@ -48,6 +48,8 @@ public class LockWorldRotation : MonoBehaviour
 
         Transform realParent = transform.parent;
 
+        // Если объект дочерний, компенсируем поворот родителя через localRotation.
+        // Так объект сохранит нужный мировой поворот, даже если весь скелет выше крутится.
         if (realParent != null)
             transform.localRotation = Quaternion.Inverse(realParent.rotation) * targetWorldRotation;
         else

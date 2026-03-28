@@ -2,7 +2,7 @@ using UnityEngine;
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(RBCharacter25D), typeof(Rigidbody), typeof(CapsuleCollider))]
-public sealed class RBCharacter25DVaulting : MonoBehaviour
+public sealed class RBCharacter25DVaulting_old : MonoBehaviour
 {
     private const float InvalidPastTime = -999f;
     private const float Skin = 0.01f;
@@ -53,7 +53,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
     [SerializeField] private bool allowVaultWhileFalling = true;
     [SerializeField] private bool onlyBoxColliders = true;
     [SerializeField] private float vaultCooldown = 0.08f;
-    [SerializeField] private float maxStartUpwardSpeed = 0.35f;
+    [SerializeField] private float maxStartUpwardSpeed = 0.35f; // legacy field: больше не ограничивает старт vault на подлёте
 
     [Header("Vault Height")]
     [SerializeField] private float minVaultHeight = 0.35f;
@@ -143,7 +143,6 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             return false;
         }
 
-        Vector3 velocity = rb.linearVelocity;
         bool grounded = controller.IsGroundedNow;
 
         if (grounded)
@@ -156,7 +155,11 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         }
         else
         {
-            if (!allowVaultWhileFalling || velocity.y > maxStartUpwardSpeed)
+            // ВАЖНО:
+            // Оставляем старое имя поля для совместимости с уже выставленными значениями в инспекторе,
+            // но по факту оно теперь означает "разрешить vault в воздухе вообще",
+            // и на подлёте вверх, и на падении.
+            if (!allowVaultWhileFalling)
             {
                 DrawRuntimeDebugPreview();
                 return false;

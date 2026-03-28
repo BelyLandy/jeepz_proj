@@ -2,12 +2,13 @@ using UnityEngine;
 
 public class RotationAnim : MonoBehaviour
 {
-    private float inputX;
+    [SerializeField] private RBCharacter25DPlayerInput playerInput;
 
     public float leftYaw = 135f;
     public float rightYaw = 45f;
     public float turnSpeed = 540f;
 
+    private float inputX;
     private Quaternion desiredRotation;
 
     public int FacingSign { get; private set; } = +1;
@@ -15,14 +16,23 @@ public class RotationAnim : MonoBehaviour
     public float InputX => inputX;
     public bool HasMoveInput { get; private set; }
 
-    void Awake()
+    private void Awake()
     {
         desiredRotation = transform.rotation;
+
+        if (playerInput == null)
+            playerInput = GetComponent<RBCharacter25DPlayerInput>();
     }
 
-    void Update()
+    private void OnValidate()
     {
-        inputX = Input.GetAxisRaw("Horizontal");
+        if (playerInput == null)
+            playerInput = GetComponent<RBCharacter25DPlayerInput>();
+    }
+
+    private void Update()
+    {
+        inputX = playerInput != null ? playerInput.CurrentMoveX : 0f;
         HasMoveInput = Mathf.Abs(inputX) > 0.01f;
 
         if (inputX < -0.01f)

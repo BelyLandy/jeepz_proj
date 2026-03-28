@@ -26,15 +26,18 @@ public class FootPlacementTwoBoneIK : MonoBehaviour
     [SerializeField] private Transform characterForward;
 
     [Header("Character State")]
-    [Tooltip("пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ RBCharacter25D.")]
+    [Tooltip("Сюда укажи объект с RBCharacter25D.")]
     [SerializeField] private RBCharacter25D characterMotor;
 
+    [Tooltip("Обычно сюда лучше поставить тот же объект, что и characterForward, либо корень модели.")]
     [SerializeField] private Transform airbornePoseReference;
 
+    [Header("Foot probes (children of Foot bone)")]
     [SerializeField] private Transform heelPoint;
     [SerializeField] private Transform supportPoint;
     [SerializeField] private Transform toePoint;
 
+    [Tooltip("Главная точка постановки стопы для позиции IK target. Ставь примерно под центром стопы / щиколоткой.")]
     [SerializeField] private Transform plantPoint;
 
     [Header("Capture")]
@@ -56,6 +59,7 @@ public class FootPlacementTwoBoneIK : MonoBehaviour
     [SerializeField, Min(0f)] private float supportNormalWeight = 1.25f;
     [SerializeField, Min(0f)] private float plantNormalWeight = 1f;
 
+    [Tooltip("Обычно лучше выключить. Тогда Y/yaw не будет дёргаться на ровной поверхности.")]
     [SerializeField] private bool solveYawFromGround = false;
 
     [Range(0f, 1f)]
@@ -66,6 +70,7 @@ public class FootPlacementTwoBoneIK : MonoBehaviour
     [Header("Surface position")]
     [SerializeField, Min(0f)] private float supportPositionWeight = 1.5f;
 
+    [Tooltip("Поднимать цель только по высоте к самой высокой найденной точке, без горизонтального сдвига.")]
     [SerializeField] private bool preferHighestSample = false;
 
     [Range(0f, 1f)]
@@ -76,8 +81,10 @@ public class FootPlacementTwoBoneIK : MonoBehaviour
     [Header("Airborne handling")]
     [SerializeField] private bool disableFootPlacementInAir = true;
 
+    [Tooltip("Небольшая задержка после схода с земли, чтобы не было дёргания на краях.")]
     [SerializeField, Min(0f)] private float airborneDisableDelay = 0.02f;
 
+    [Tooltip("Если персонаж уже имеет заметную вертикальную скорость, считаем его в воздухе сразу.")]
     [SerializeField] private bool forceAirborneByVerticalVelocity = true;
 
     [SerializeField, Min(0f)] private float airborneVerticalSpeedThreshold = 0.15f;
@@ -90,6 +97,7 @@ public class FootPlacementTwoBoneIK : MonoBehaviour
     [SerializeField, Min(0f)] private float airborneRotationLerpMultiplier = 1.6f;
     [SerializeField, Min(0f)] private float airborneWeightLerpMultiplier = 2f;
 
+    [Tooltip("Если target слишком далеко от air pose, можно мгновенно вернуть его при входе в воздух.")]
     [SerializeField] private bool snapTargetOnAirEnterIfFar = true;
 
     [SerializeField, Min(0f)] private float airEnterSnapDistance = 0.35f;
@@ -122,6 +130,7 @@ public class FootPlacementTwoBoneIK : MonoBehaviour
     [SerializeField] private bool ignoreVerticalVelocity = true;
     [SerializeField, Min(0f)] private float moveThreshold = 0.05f;
 
+    [Tooltip("Если хочешь из другого скрипта вручную передавать, движется ли персонаж.")]
     [SerializeField] private bool useExternalMovingFlag = false;
     [SerializeField] private bool externalIsMoving = true;
 

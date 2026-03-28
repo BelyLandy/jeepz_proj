@@ -15,18 +15,20 @@ public class FootSurfaceRotationIK : MonoBehaviour
     [SerializeField] private MultiRotationConstraint rotationConstraint;
     [SerializeField] private Transform constrainedFoot;
 
+    [Tooltip("Обязательно лучше задать сюда root/hips/объект, который определяет направление персонажа.")]
     [SerializeField] private Transform characterForward;
 
     [SerializeField] private bool captureOffsetOnStart = true;
     [SerializeField] private Vector3 additionalRotationOffsetEuler = Vector3.zero;
 
     [Header("Foot points")]
-    [Tooltip("пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ")]
+    [Tooltip("Точка под пяткой")]
     [SerializeField] private Transform heelPoint;
 
-    [Tooltip("пїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ")]
+    [Tooltip("Доп. точка между пяткой и носком, лучше чуть ближе к пятке")]
     [SerializeField] private Transform supportPoint;
 
+    [Tooltip("Точка под носком")]
     [SerializeField] private Transform toePoint;
 
     [Header("Ground detection")]
@@ -40,13 +42,16 @@ public class FootSurfaceRotationIK : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float normalInfluence = 1f;
 
+    [Tooltip("Вес дополнительной точки supportPoint при усреднении нормали.")]
     [SerializeField, Min(0f)] private float supportNormalWeight = 1.25f;
 
+    [Tooltip("Обычно лучше оставить false. Тогда yaw не будет дёргаться на ровной поверхности.")]
     [SerializeField] private bool solveYawFromGround = false;
 
     [Range(0f, 1f)]
     [SerializeField] private float groundForwardInfluence = 0.2f;
 
+    [Tooltip("Начиная с какого наклона поверхности разрешать подмешивать forward от heel->toe.")]
     [SerializeField, Range(0f, 89f)] private float minSlopeToUseGroundForward = 10f;
 
     [Header("Smoothing")]
@@ -65,6 +70,7 @@ public class FootSurfaceRotationIK : MonoBehaviour
     [SerializeField] private bool ignoreVerticalVelocity = true;
     [SerializeField, Min(0f)] private float moveThreshold = 0.05f;
 
+    [Tooltip("Если хочешь из другого скрипта вручную задавать, движется ли персонаж")]
     [SerializeField] private bool useExternalMovingFlag = false;
     [SerializeField] private bool externalIsMoving = true;
 
@@ -206,10 +212,10 @@ public class FootSurfaceRotationIK : MonoBehaviour
 
         Vector3 solvedUp = Vector3.Slerp(referenceUp, smoothedSurfaceUp, normalInfluence).normalized;
 
-        // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ yaw пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅ пїЅпїЅ heel->toe.
+        // По умолчанию yaw берём от персонажа, а не от heel->toe.
         Vector3 finalForward = GetReferenceForward(solvedUp);
 
-        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ forward пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
+        // Опционально можно немного подмешивать forward от земли на заметных наклонах.
         if (solveYawFromGround && TryGetGroundForward(heel, support, toe, solvedUp, out Vector3 groundForward))
         {
             if (Vector3.Dot(groundForward, finalForward) < 0f)
@@ -312,10 +318,10 @@ public class FootSurfaceRotationIK : MonoBehaviour
 
         targetForward.Normalize();
 
-        // 1. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ up -> пїЅпїЅпїЅпїЅпїЅпїЅ up
+        // 1. Мировой up -> нужный up
         Quaternion upRotation = Quaternion.FromToRotation(Vector3.up, targetUp);
 
-        // 2. пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ forward пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        // 2. После этого доворачиваем forward по плоскости поверхности
         Vector3 forwardAfterUp = Vector3.ProjectOnPlane(upRotation * Vector3.forward, targetUp);
 
         if (forwardAfterUp.sqrMagnitude < 0.000001f)

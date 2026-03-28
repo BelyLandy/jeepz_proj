@@ -7,29 +7,17 @@ public sealed class RBCharacter25D : MonoBehaviour
     private const float InputEpsilon = 0.01f;
     private const float SpeedEpsilon = 0.0001f;
     private const float DotEpsilon = 1e-5f;
-    private const float HitDistanceTieEpsilon = 0.0025f;
     private const float InvalidPastTime = -999f;
 
     private const int WallSideNone = 0;
     private const int WallSideLeft = -1;
     private const int WallSideRight = +1;
 
-    private struct GroundInfo
+    public enum SelfJumpKind
     {
-        public bool grounded;
-        public RaycastHit hit;
-        public bool onSlope;
-        public Vector3 slopeTangent;
-        public float slopeAngle;
-        public float downhillSign;
-    }
-
-    private struct WallInfo
-    {
-        public bool blockedLeft;
-        public bool blockedRight;
-        public RaycastHit leftHit;
-        public RaycastHit rightHit;
+        None = 0,
+        SingleJump = 1,
+        DoubleJump = 2,
     }
 
     [Header("2.5D Constraint")]
@@ -44,21 +32,21 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     [Header("Air Movement")]
     [Tooltip("Насколько быстро гасится горизонтальная скорость в воздухе после отпускания кнопки направления.")]
-    [SerializeField] private float airDeceleration = 4f;
+    [SerializeField] private float airDeceleration = 8f;
 
     [Header("Double Jump Speed Boost")]
     [Tooltip("Включить временный бонус к moveSpeed после double jump.")]
     [SerializeField] private bool enableDoubleJumpSpeedBoost = true;
 
     [Tooltip("На сколько увеличить moveSpeed после double jump.")]
-    [SerializeField] private float doubleJumpMoveSpeedBonus = 2f;
+    [SerializeField] private float doubleJumpMoveSpeedBonus = 3f;
 
     [Header("Jump Cooldown After Double Jump Landing")]
     [Tooltip("После приземления из double jump включать очень короткий кулдаун на новый прыжок.")]
     [SerializeField] private bool enableJumpCooldownAfterDoubleJumpLanding = true;
 
     [Tooltip("Длительность маленького кулдауна на прыжок после приземления из double jump.")]
-    [SerializeField] private float jumpCooldownAfterDoubleJumpLanding = 0.08f;
+    [SerializeField] private float jumpCooldownAfterDoubleJumpLanding = 0.01f;
 
     [Header("Move Ramp / Blend Tree")]
     [Tooltip("Плавность набора направления от 0 к 1. Чем меньше значение, тем мягче старт.")]
@@ -74,7 +62,7 @@ public sealed class RBCharacter25D : MonoBehaviour
     [SerializeField, Range(0f, 89f)] private float slopeMinAngle = 1f;
 
     [Tooltip("Торможение после отпускания кнопки при движении вниз по склону. Меньше значение = дальше скольжение.")]
-    [SerializeField] private float downhillSlideDeceleration = 12f;
+    [SerializeField] private float downhillSlideDeceleration = 30f;
 
     [Tooltip("Минимальная скорость вдоль склона, чтобы после отпускания был заметный доскольз.")]
     [SerializeField] private float downhillSlideMinSpeed = 1f;
@@ -101,7 +89,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     [Header("Jump")]
     [Tooltip("Импульс прыжка (будет перезаписан авто-настройкой, если autoTuneJump=true).")]
-    [SerializeField] private float jumpImpulse = 12f;
+    [SerializeField] private float jumpImpulse = 18.75733f;
     [SerializeField] private float coyoteTime = 0.1f;
     [SerializeField] private float jumpBuffer = 0.1f;
     [SerializeField] private bool cutJumpOnRelease = false;
@@ -111,7 +99,7 @@ public sealed class RBCharacter25D : MonoBehaviour
     [SerializeField] private bool doubleJumpOnlyInAir = true;
 
     [Tooltip("Импульс второго прыжка (будет перезаписан авто-настройкой, если autoTuneJump=true).")]
-    [SerializeField] private float doubleJumpImpulse = 12f;
+    [SerializeField] private float doubleJumpImpulse = 18.75733f;
 
     [Header("Wall Stop")]
     [Tooltip("Дистанция проверки стены в сторону движения (world units).")]
@@ -127,7 +115,7 @@ public sealed class RBCharacter25D : MonoBehaviour
     [SerializeField] private bool enableWallSlide = true;
 
     [Tooltip("Чтобы начать зацеп за стену, нужно удерживать направление в сторону стены.")]
-    [SerializeField] private bool requireInputToLatchWall = true;
+    [SerializeField] private bool requireInputToLatchWall = false;
 
     [Tooltip("Если во время зацепа удерживать направление от стены, герой сможет отцепиться.")]
     [SerializeField] private bool detachFromWallOnOppositeInput = true;
@@ -145,10 +133,10 @@ public sealed class RBCharacter25D : MonoBehaviour
     [SerializeField] private float wallUpwardDeceleration = 18f;
 
     [Tooltip("Горизонтальная скорость отскока от стены.")]
-    [SerializeField] private float wallJumpHorizontalSpeed = 8f;
+    [SerializeField] private float wallJumpHorizontalSpeed = 12f;
 
     [Tooltip("Вертикальная скорость прыжка от стены.")]
-    [SerializeField] private float wallJumpVerticalSpeed = 10f;
+    [SerializeField] private float wallJumpVerticalSpeed = 15f;
 
     [Tooltip("Сохранять ли возможность одного двойного прыжка после wall jump.")]
     [SerializeField] private bool allowDoubleJumpAfterWallJump = true;
@@ -195,43 +183,33 @@ public sealed class RBCharacter25D : MonoBehaviour
     private Rigidbody rb;
     private CapsuleCollider col;
     private RBCharacter25DVaulting vaulting;
+    private RBCharacter25DSurfaceSensor surfaceSensor;
+
+    private FrameInput25D currentInput;
+    private SurfaceContacts25D lastContacts;
+    private LocomotionState25D state;
 
     private float inputX;
+    private float externalMoveX;
+    private bool externalJumpHeld;
+    private bool externalJumpPressedQueued;
+    private bool externalJumpReleasedQueued;
     private float smoothedInputX;
     private float currentHorizontalSpeedAbs;
     private float lastNonZeroInputX = 1f;
-
-    private float lastGroundedTime = InvalidPastTime;
-    private float lastJumpPressedTime = InvalidPastTime;
-    private float lastJumpExecutedTime = InvalidPastTime;
     private float lastDebugLogTime = InvalidPastTime;
-
-    private bool isGrounded;
-    private bool wasGroundedLastFixed;
-    private int jumpsRemaining;
-
     private float runtimeGravityScale = 1f;
-    private bool pendingSlopeStickAfterJump;
-    private float slopeLockUntilTime = InvalidPastTime;
     private bool slopeXLocked;
 
-    private bool isWallSliding;
-    private int wallSlideSide = WallSideNone;
-    private float wallReattachLockUntilTime = InvalidPastTime;
-    private int wallReattachLockedSide = WallSideNone;
-    private float wallDetachHoldTimer;
-
-    private bool usedDoubleJumpSinceLastGrounded;
-    private bool isDoubleJumpSpeedBoostActive;
-    private float jumpBlockedUntilTime = InvalidPastTime;
-
-    private readonly RaycastHit[] castHits = new RaycastHit[16];
-
-    public bool IsGroundedNow => isGrounded;
-    public bool IsWallSliding => isWallSliding;
+    public bool IsGroundedNow => state.IsGrounded;
+    public bool IsWallSliding => state.IsWallSliding;
     public bool IsVaultingNow => vaulting != null && vaulting.IsVaulting;
-    public int WallSlideSide => wallSlideSide;
-    public float LastJumpTime => lastJumpExecutedTime;
+    public float LastVaultFinishedTime { get; private set; } = InvalidPastTime;
+    public float LastWallSlideFinishedTime { get; private set; } = InvalidPastTime;
+    public int WallSlideSide => state.WallSlideSide;
+    public float LastJumpTime => state.LastJumpExecutedTime;
+    public SelfJumpKind LastSelfJumpType => state.LastSelfJumpKind;
+    public int LastSelfJumpStateVersion => state.LastSelfJumpStateVersion;
     public float RuntimeGravityScale => runtimeGravityScale;
     public float SmoothedInputX => smoothedInputX;
     public float MoveBlend01 => Mathf.Abs(smoothedInputX);
@@ -251,7 +229,88 @@ public sealed class RBCharacter25D : MonoBehaviour
     private void Awake()
     {
         CacheComponents();
+        EnsureSurfaceSensor();
         InitializeRuntimeState();
+    }
+
+    private void Reset()
+    {
+        lockZ = true;
+        lockedZ = 0f;
+
+        moveSpeed = 8f;
+        acceleration = 40f;
+        deceleration = 60f;
+        airControl = 0.8f;
+        airDeceleration = 8f;
+
+        enableDoubleJumpSpeedBoost = true;
+        doubleJumpMoveSpeedBonus = 3f;
+        enableJumpCooldownAfterDoubleJumpLanding = true;
+        jumpCooldownAfterDoubleJumpLanding = 0.01f;
+
+        inputAcceleration = 8f;
+        inputDeceleration = 12f;
+
+        enableSlopeHandling = true;
+        slopeMinAngle = 1f;
+        downhillSlideDeceleration = 30f;
+        downhillSlideMinSpeed = 1f;
+        stickToSlopeAfterVerticalJump = true;
+        slopeLandingStickSpeed = 1.25f;
+        freezeXWhenIdleOnSlope = true;
+        slopeIdleLockSpeed = 0.05f;
+        slopeLandingLockTime = 0.12f;
+
+        debugAcceleration = false;
+        debugLogInterval = 0.1f;
+
+        jumpImpulse = 18.75733f;
+        coyoteTime = 0.1f;
+        jumpBuffer = 0.1f;
+        cutJumpOnRelease = false;
+
+        enableDoubleJump = true;
+        doubleJumpOnlyInAir = true;
+        doubleJumpImpulse = 18.75733f;
+
+        wallCheckDistance = 0.5f;
+        wallCheckHeightOffset = 0f;
+        wallCheckRadius = 0.08f;
+
+        enableWallSlide = true;
+        requireInputToLatchWall = false;
+        detachFromWallOnOppositeInput = true;
+        wallDetachHoldTime = 0.3f;
+        wallSlideSpeed = 2.5f;
+        allowWallSlideUpwardMomentum = true;
+        wallUpwardDeceleration = 18f;
+        wallJumpHorizontalSpeed = 12f;
+        wallJumpVerticalSpeed = 15f;
+        allowDoubleJumpAfterWallJump = true;
+        enableWallReattachCooldown = true;
+        wallReattachCooldown = 0.12f;
+        wallMinNormalX = 0.7f;
+        wallMaxNormalY = 0.2f;
+
+        manualGravityScale = 1f;
+
+        int terrainLayer = LayerMask.NameToLayer("Terrain");
+        if (terrainLayer >= 0)
+            groundMask = 1 << terrainLayer;
+
+        groundProbeDistance = 0.08f;
+        groundProbeStartOffset = 0.02f;
+        groundProbeInset = 0.05f;
+        landingClampMinY = 0f;
+
+        autoTuneJump = true;
+        pixelsPerUnit = 32f;
+        jumpHeightPixels = 128f;
+        timeToApex = 0.4265f;
+        doubleJumpHeightPixels = 128f;
+
+        ClampSettings();
     }
 
     private void OnValidate()
@@ -262,7 +321,9 @@ public sealed class RBCharacter25D : MonoBehaviour
             return;
 
         CacheComponents();
+        EnsureSurfaceSensor();
         RecalculateRuntimeSettings();
+        SyncSurfaceSensor();
         ApplyManagedConstraints(slopeXLocked);
     }
 
@@ -274,102 +335,62 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (IsVaultingNow)
-        {
-            vaulting.StepActiveVault();
-            wasGroundedLastFixed = false;
+        if (StepVaultIfActive())
             return;
-        }
 
         ApplyExtraGravity();
 
         if (!enableDoubleJumpSpeedBoost)
-            isDoubleJumpSpeedBoostActive = false;
+            state.IsDoubleJumpSpeedBoostActive = false;
 
-        GroundInfo ground = ProbeGround();
-        UpdateGroundedState(ground, out bool justLandedThisFixed, out bool leftGroundThisFixed);
+        currentInput.RawX = inputX;
+        currentInput.JumpHeld = externalJumpHeld;
+        currentInput.JumpPressed = false;
+        currentInput.JumpReleased = false;
+        currentInput.FacingSign = VaultFacingSignFromInput;
+
+        lastContacts = GatherSurfaceContacts();
+        UpdateGroundedState(lastContacts, out bool justLandedThisFixed, out bool leftGroundThisFixed);
 
         if (leftGroundThisFixed)
         {
-            slopeLockUntilTime = InvalidPastTime;
+            state.SlopeLockUntilTime = InvalidPastTime;
             UpdateSlopeXConstraint(false);
         }
 
-        if (!isGrounded && Mathf.Abs(inputX) > InputEpsilon)
-            pendingSlopeStickAfterJump = false;
+        if (!state.IsGrounded && Mathf.Abs(inputX) > InputEpsilon)
+            state.PendingSlopeStickAfterJump = false;
 
         if (vaulting != null && vaulting.TryStartVault())
         {
             currentHorizontalSpeedAbs = 0f;
-            wasGroundedLastFixed = false;
+            state.WasGroundedLastFixed = false;
             return;
         }
-
-        WallInfo wall = CheckWalls();
-        bool blockedLeft = wall.blockedLeft;
-        bool blockedRight = wall.blockedRight;
 
         UpdateSmoothedInput();
-        UpdateWallSlideState(wall);
+        currentInput.SmoothedX = smoothedInputX;
 
-        if (TryConsumeWallJump())
-        {
-            currentHorizontalSpeedAbs = Mathf.Abs(rb.linearVelocity.x);
-            wasGroundedLastFixed = isGrounded;
+        UpdateWallSlideState(lastContacts);
+
+        VelocityCommand25D command = BuildVelocityCommand(currentInput, lastContacts, justLandedThisFixed);
+        ApplyVelocityCommand(command);
+
+        UpdateCurrentHorizontalSpeed(lastContacts);
+        state.WasGroundedLastFixed = state.IsGrounded;
+
+        if (!state.IsGrounded)
             UpdateSlopeXConstraint(false);
-            return;
-        }
+    }
 
-        Vector3 currentVelocity = rb.linearVelocity;
-        float currentPlanarSpeed = GetCurrentPlanarSpeed(currentVelocity, ground, justLandedThisFixed);
+    private bool StepVaultIfActive()
+    {
+        if (!IsVaultingNow)
+            return false;
 
-        if (justLandedThisFixed)
-        {
-            TryStartSlopeLandingLock(ground, currentPlanarSpeed);
-
-            if (ground.onSlope && Mathf.Abs(inputX) <= InputEpsilon && IsSlopeLandingLockActive())
-                currentPlanarSpeed = 0f;
-        }
-
-        ApplySlopeAntiSlide(ground);
-
-        bool noRawInput = Mathf.Abs(inputX) <= InputEpsilon;
-        float targetPlanarSpeed = GetTargetPlanarSpeed(blockedLeft, blockedRight);
-        float downhillSignedSpeed = ground.onSlope ? currentPlanarSpeed * ground.downhillSign : 0f;
-
-        bool shouldLockSlopeX = ShouldLockSlopeX(ground, noRawInput, currentPlanarSpeed, downhillSignedSpeed);
-        UpdateSlopeXConstraint(shouldLockSlopeX);
-
-        float resolvedPlanarSpeed = ResolvePlanarSpeed(
-            targetPlanarSpeed,
-            currentPlanarSpeed,
-            downhillSignedSpeed,
-            noRawInput,
-            blockedLeft,
-            blockedRight,
-            ground.onSlope
-        );
-
-        currentHorizontalSpeedAbs = Mathf.Abs(resolvedPlanarSpeed);
-
-        LogAccelerationDebug(
-            currentPlanarSpeed,
-            targetPlanarSpeed,
-            resolvedPlanarSpeed,
-            blockedLeft,
-            blockedRight,
-            ground,
-            downhillSignedSpeed
-        );
-
-        ApplyFinalVelocity(ground, currentVelocity, resolvedPlanarSpeed, shouldLockSlopeX, noRawInput);
-        ApplyWallSlideVelocity();
-        TryConsumeBufferedJump(ground, currentPlanarSpeed);
-
-        wasGroundedLastFixed = isGrounded;
-
-        if (!isGrounded)
-            UpdateSlopeXConstraint(false);
+        vaulting.StepActiveVault();
+        state.WasGroundedLastFixed = false;
+        return true;
     }
 
     private void CacheComponents()
@@ -379,17 +400,69 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (vaulting == null) vaulting = GetComponent<RBCharacter25DVaulting>();
     }
 
+    private void EnsureSurfaceSensor()
+    {
+        if (surfaceSensor == null)
+            surfaceSensor = new RBCharacter25DSurfaceSensor();
+
+        surfaceSensor.Initialize(rb, col);
+        SyncSurfaceSensor();
+    }
+
+    private void SyncSurfaceSensor()
+    {
+        if (surfaceSensor == null)
+            return;
+
+        surfaceSensor.SyncSettings(
+            groundMask,
+            groundProbeDistance,
+            groundProbeStartOffset,
+            groundProbeInset,
+            wallCheckDistance,
+            wallCheckHeightOffset,
+            wallCheckRadius,
+            wallMinNormalX,
+            wallMaxNormalY,
+            enableSlopeHandling,
+            slopeMinAngle,
+            lockZ,
+            lockedZ);
+    }
+
     private void InitializeRuntimeState()
     {
-        rb.useGravity = true;
+        if (rb != null)
+            rb.useGravity = true;
 
         if (lockZ)
             lockedZ = transform.position.z;
 
+        state.LastGroundedTime = InvalidPastTime;
+        state.LastJumpPressedTime = InvalidPastTime;
+        state.LastJumpExecutedTime = InvalidPastTime;
+        state.WallReattachLockUntilTime = InvalidPastTime;
+        state.JumpBlockedUntilTime = InvalidPastTime;
+        state.SlopeLockUntilTime = InvalidPastTime;
+        state.WallReattachLockedSide = WallSideNone;
+        state.WallSlideSide = WallSideNone;
+        state.IsGrounded = false;
+        state.WasGroundedLastFixed = false;
+        state.IsWallSliding = false;
+        state.WallDetachHoldTimer = 0f;
+        smoothedInputX = 0f;
+        currentHorizontalSpeedAbs = 0f;
+        externalMoveX = 0f;
+        externalJumpHeld = false;
+        externalJumpPressedQueued = false;
+        externalJumpReleasedQueued = false;
+
         RecalculateRuntimeSettings();
         ResetJumpCounter();
         ClearDoubleJumpRuntimeState();
+        ClearLastSelfJumpState();
         ApplyManagedConstraints(false);
+        SyncSurfaceSensor();
     }
 
     private void RecalculateRuntimeSettings()
@@ -424,13 +497,13 @@ public sealed class RBCharacter25D : MonoBehaviour
         debugLogInterval = Mathf.Max(0.01f, debugLogInterval);
 
         jumpImpulse = Mathf.Max(0f, jumpImpulse);
-        doubleJumpImpulse = Mathf.Max(0f, doubleJumpImpulse);
         coyoteTime = Mathf.Max(0f, coyoteTime);
         jumpBuffer = Mathf.Max(0f, jumpBuffer);
 
-        wallCheckDistance = Mathf.Max(0f, wallCheckDistance);
-        wallCheckRadius = Mathf.Max(0.001f, wallCheckRadius);
+        doubleJumpImpulse = Mathf.Max(0f, doubleJumpImpulse);
 
+        wallCheckDistance = Mathf.Max(0.001f, wallCheckDistance);
+        wallCheckRadius = Mathf.Max(0.001f, wallCheckRadius);
         wallDetachHoldTime = Mathf.Max(0f, wallDetachHoldTime);
         wallSlideSpeed = Mathf.Max(0f, wallSlideSpeed);
         wallUpwardDeceleration = Mathf.Max(0f, wallUpwardDeceleration);
@@ -441,7 +514,6 @@ public sealed class RBCharacter25D : MonoBehaviour
         wallMaxNormalY = Mathf.Clamp01(wallMaxNormalY);
 
         manualGravityScale = Mathf.Max(0f, manualGravityScale);
-
         groundProbeDistance = Mathf.Max(0.001f, groundProbeDistance);
         groundProbeStartOffset = Mathf.Max(0f, groundProbeStartOffset);
         groundProbeInset = Mathf.Max(0f, groundProbeInset);
@@ -454,28 +526,38 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void ReadInput()
     {
-        inputX = Input.GetAxisRaw("Horizontal");
+        inputX = externalMoveX;
 
         if (Mathf.Abs(inputX) > InputEpsilon)
             lastNonZeroInputX = Mathf.Sign(inputX);
 
         if (IsVaultingNow)
+        {
+            externalJumpPressedQueued = false;
+            return;
+        }
+
+        if (!externalJumpPressedQueued)
             return;
 
-        if (Input.GetButtonDown("Jump"))
-        {
-            if (!IsJumpTemporarilyBlocked())
-                lastJumpPressedTime = Time.time;
-        }
+        currentInput.JumpPressed = true;
+        state.LastJumpPressedTime = Time.time;
+        externalJumpPressedQueued = false;
     }
 
     private void HandleJumpReleaseCut()
     {
         if (IsVaultingNow)
+        {
+            externalJumpReleasedQueued = false;
+            return;
+        }
+
+        if (!cutJumpOnRelease || !externalJumpReleasedQueued)
             return;
 
-        if (!cutJumpOnRelease || !Input.GetButtonUp("Jump"))
-            return;
+        currentInput.JumpReleased = true;
+        externalJumpReleasedQueued = false;
 
         Vector3 velocity = rb.linearVelocity;
         if (velocity.y <= 0f)
@@ -484,20 +566,55 @@ public sealed class RBCharacter25D : MonoBehaviour
         rb.linearVelocity = new Vector3(
             velocity.x,
             velocity.y * 0.5f,
-            lockZ ? 0f : velocity.z
-        );
+            lockZ ? 0f : velocity.z);
     }
 
-    private void UpdateGroundedState(GroundInfo ground, out bool justLandedThisFixed, out bool leftGroundThisFixed)
+    public void SetMoveInput(float x)
     {
-        isGrounded = ground.grounded;
+        externalMoveX = Mathf.Clamp(x, -1f, 1f);
+    }
 
-        justLandedThisFixed = !wasGroundedLastFixed && isGrounded;
-        leftGroundThisFixed = wasGroundedLastFixed && !isGrounded;
+    public void SetJumpHeld(bool held)
+    {
+        externalJumpHeld = held;
+    }
 
-        if (isGrounded)
+    public void QueueJumpPressed()
+    {
+        externalJumpPressedQueued = true;
+    }
+
+    public void QueueJumpReleased()
+    {
+        externalJumpReleasedQueued = true;
+    }
+
+    public void ClearExternalInputState(bool clearMove = true)
+    {
+        if (clearMove)
+            externalMoveX = 0f;
+
+        externalJumpHeld = false;
+        externalJumpPressedQueued = false;
+        externalJumpReleasedQueued = false;
+    }
+
+    private SurfaceContacts25D GatherSurfaceContacts()
+    {
+        EnsureSurfaceSensor();
+        SyncSurfaceSensor();
+        return surfaceSensor != null ? surfaceSensor.ProbeContacts() : default;
+    }
+
+    private void UpdateGroundedState(SurfaceContacts25D contacts, out bool justLandedThisFixed, out bool leftGroundThisFixed)
+    {
+        state.IsGrounded = contacts.IsGrounded;
+        justLandedThisFixed = !state.WasGroundedLastFixed && state.IsGrounded;
+        leftGroundThisFixed = state.WasGroundedLastFixed && !state.IsGrounded;
+
+        if (state.IsGrounded)
         {
-            lastGroundedTime = Time.time;
+            state.LastGroundedTime = Time.time;
             ClearWallSlideState();
 
             if (justLandedThisFixed)
@@ -510,45 +627,49 @@ public sealed class RBCharacter25D : MonoBehaviour
         else if (leftGroundThisFixed)
         {
             Vector3 velocity = rb.linearVelocity;
-            bool recentlyJumped = (Time.time - lastJumpExecutedTime) <= (Time.fixedDeltaTime * 1.5f);
+            bool recentlyJumped = (Time.time - state.LastJumpExecutedTime) <= (Time.fixedDeltaTime * 1.5f);
 
             if (!recentlyJumped && velocity.y <= 0.01f)
-                jumpsRemaining = enableDoubleJump ? Mathf.Min(jumpsRemaining, 1) : 0;
+                state.JumpsRemaining = enableDoubleJump ? Mathf.Min(state.JumpsRemaining, 1) : 0;
         }
     }
 
     private void HandleLandingAfterAirborneState()
     {
         ApplyJumpCooldownAfterDoubleJumpLandingIfNeeded();
-        isDoubleJumpSpeedBoostActive = false;
-        usedDoubleJumpSinceLastGrounded = false;
+        state.IsDoubleJumpSpeedBoostActive = false;
+        state.UsedDoubleJumpSinceLastGrounded = false;
+        ClearLastSelfJumpState();
 
-        if (IsJumpTemporarilyBlocked())
-            lastJumpPressedTime = InvalidPastTime;
     }
 
     private void ApplyJumpCooldownAfterDoubleJumpLandingIfNeeded()
     {
         if (enableJumpCooldownAfterDoubleJumpLanding &&
-            usedDoubleJumpSinceLastGrounded &&
+            state.UsedDoubleJumpSinceLastGrounded &&
             jumpCooldownAfterDoubleJumpLanding > 0f)
         {
-            jumpBlockedUntilTime = Time.time + jumpCooldownAfterDoubleJumpLanding;
+            state.JumpBlockedUntilTime = Time.time + jumpCooldownAfterDoubleJumpLanding;
         }
         else
         {
-            jumpBlockedUntilTime = InvalidPastTime;
+            state.JumpBlockedUntilTime = InvalidPastTime;
         }
+    }
+
+    private bool IsJumpBuffered()
+    {
+        return (Time.time - state.LastJumpPressedTime) <= jumpBuffer;
     }
 
     private bool IsJumpTemporarilyBlocked()
     {
-        return Time.time < jumpBlockedUntilTime;
+        return Time.time < state.JumpBlockedUntilTime;
     }
 
     private void ResetJumpCounter()
     {
-        jumpsRemaining = enableDoubleJump ? 2 : 1;
+        state.JumpsRemaining = enableDoubleJump ? 2 : 1;
     }
 
     private void ClampLandingVerticalVelocity()
@@ -560,8 +681,7 @@ public sealed class RBCharacter25D : MonoBehaviour
             rb.linearVelocity = new Vector3(
                 velocity.x,
                 0f,
-                lockZ ? 0f : velocity.z
-            );
+                lockZ ? 0f : velocity.z);
         }
     }
 
@@ -583,21 +703,70 @@ public sealed class RBCharacter25D : MonoBehaviour
         smoothedInputX = Mathf.MoveTowards(
             smoothedInputX,
             desiredInput,
-            rampSpeed * Time.fixedDeltaTime
-        );
+            rampSpeed * Time.fixedDeltaTime);
     }
 
-    private float GetTargetPlanarSpeed(bool blockedLeft, bool blockedRight)
+    private VelocityCommand25D BuildVelocityCommand(FrameInput25D input, SurfaceContacts25D contacts, bool justLandedThisFixed)
     {
-        if (isWallSliding)
+        VelocityCommand25D command = default;
+        command.TargetVelocity = rb.linearVelocity;
+
+        float currentPlanarSpeed = GetCurrentPlanarSpeed(command.TargetVelocity, contacts, justLandedThisFixed);
+
+        if (justLandedThisFixed)
+        {
+            TryStartSlopeLandingLock(contacts, currentPlanarSpeed);
+
+            if (contacts.OnSlope && Mathf.Abs(input.RawX) <= InputEpsilon && IsSlopeLandingLockActive())
+                currentPlanarSpeed = 0f;
+        }
+
+        bool noRawInput = Mathf.Abs(input.RawX) <= InputEpsilon;
+        float targetPlanarSpeed = BuildTargetHorizontalSpeed(input, contacts);
+        float downhillSignedSpeed = contacts.OnSlope ? currentPlanarSpeed * contacts.DownhillSign : 0f;
+
+        bool shouldLockSlopeX = ShouldLockSlopeX(contacts, noRawInput, currentPlanarSpeed, downhillSignedSpeed) && !IsJumpBuffered();
+        UpdateSlopeXConstraint(shouldLockSlopeX);
+
+        float resolvedPlanarSpeed = ResolvePlanarSpeed(
+            targetPlanarSpeed,
+            currentPlanarSpeed,
+            downhillSignedSpeed,
+            noRawInput,
+            contacts.BlockedLeft,
+            contacts.BlockedRight,
+            contacts.OnSlope);
+
+        ApplyHorizontalIntent(ref command, contacts, resolvedPlanarSpeed, shouldLockSlopeX, noRawInput);
+
+        bool consumedWallJump = TryBuildWallJump(ref command);
+        if (!consumedWallJump)
+            TryBuildGroundOrAirJump(ref command, contacts, currentPlanarSpeed, noRawInput);
+
+        ApplyVerticalRules(ref command);
+
+        LogAccelerationDebug(
+            currentPlanarSpeed,
+            targetPlanarSpeed,
+            resolvedPlanarSpeed,
+            contacts.BlockedLeft,
+            contacts.BlockedRight,
+            contacts,
+            downhillSignedSpeed);
+
+        return command;
+    }
+
+    private float BuildTargetHorizontalSpeed(FrameInput25D input, SurfaceContacts25D contacts)
+    {
+        if (state.IsWallSliding)
             return 0f;
 
-        float targetPlanarSpeed = smoothedInputX * GetEffectiveMoveSpeed();
+        float targetPlanarSpeed = input.SmoothedX * GetEffectiveMoveSpeed();
 
-        if (targetPlanarSpeed > 0f && blockedRight)
+        if (targetPlanarSpeed > 0f && contacts.BlockedRight)
             targetPlanarSpeed = 0f;
-
-        if (targetPlanarSpeed < 0f && blockedLeft)
+        if (targetPlanarSpeed < 0f && contacts.BlockedLeft)
             targetPlanarSpeed = 0f;
 
         return targetPlanarSpeed;
@@ -612,12 +781,12 @@ public sealed class RBCharacter25D : MonoBehaviour
         bool blockedRight,
         bool onSlope)
     {
-        if (isWallSliding)
+        if (state.IsWallSliding)
             return 0f;
 
         float resolvedPlanarSpeed;
 
-        if (isGrounded && onSlope && noRawInput)
+        if (state.IsGrounded && onSlope && noRawInput)
         {
             if (IsSlopeLandingLockActive())
             {
@@ -629,8 +798,7 @@ public sealed class RBCharacter25D : MonoBehaviour
                 resolvedPlanarSpeed = Mathf.MoveTowards(
                     currentPlanarSpeed,
                     0f,
-                    downhillSlideDeceleration * Time.fixedDeltaTime
-                );
+                    downhillSlideDeceleration * Time.fixedDeltaTime);
             }
             else
             {
@@ -641,8 +809,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         else
         {
             float moveRate;
-
-            if (isGrounded)
+            if (state.IsGrounded)
             {
                 moveRate = Mathf.Abs(targetPlanarSpeed) > InputEpsilon
                     ? acceleration
@@ -658,60 +825,49 @@ public sealed class RBCharacter25D : MonoBehaviour
             resolvedPlanarSpeed = Mathf.MoveTowards(
                 currentPlanarSpeed,
                 targetPlanarSpeed,
-                moveRate * Time.fixedDeltaTime
-            );
+                moveRate * Time.fixedDeltaTime);
         }
 
         if (resolvedPlanarSpeed > 0f && blockedRight)
             resolvedPlanarSpeed = 0f;
-
         if (resolvedPlanarSpeed < 0f && blockedLeft)
             resolvedPlanarSpeed = 0f;
 
         return resolvedPlanarSpeed;
     }
 
-    private void ApplyFinalVelocity(
-        GroundInfo ground,
-        Vector3 currentVelocity,
-        float resolvedPlanarSpeed,
-        bool shouldLockSlopeX,
-        bool noRawInput)
+    private void ApplyHorizontalIntent(ref VelocityCommand25D command, SurfaceContacts25D contacts, float resolvedPlanarSpeed, bool shouldLockSlopeX, bool noRawInput)
     {
-        if (isGrounded && ground.onSlope)
+        if (state.IsGrounded && contacts.OnSlope)
         {
-            Vector3 finalVelocity;
+            Vector3 slopeVelocity;
 
             if (shouldLockSlopeX || (noRawInput && Mathf.Abs(resolvedPlanarSpeed) <= SpeedEpsilon))
             {
-                finalVelocity = Vector3.zero;
+                slopeVelocity = Vector3.zero;
             }
             else
             {
-                finalVelocity = ground.slopeTangent * resolvedPlanarSpeed;
+                slopeVelocity = contacts.SlopeTangent * resolvedPlanarSpeed;
             }
 
-            if (lockZ)
-                finalVelocity.z = 0f;
-
-            rb.linearVelocity = finalVelocity;
+            command.TargetVelocity.x = slopeVelocity.x;
+            command.TargetVelocity.y = slopeVelocity.y;
+            command.OverrideX = true;
+            command.OverrideY = true;
             return;
         }
 
-        rb.linearVelocity = new Vector3(
-            resolvedPlanarSpeed,
-            currentVelocity.y,
-            lockZ ? 0f : currentVelocity.z
-        );
+        command.TargetVelocity.x = resolvedPlanarSpeed;
+        command.OverrideX = true;
     }
 
-    private void ApplyWallSlideVelocity()
+    private void ApplyVerticalRules(ref VelocityCommand25D command)
     {
-        if (!isWallSliding)
+        if (!state.IsWallSliding || command.ConsumedWallJump)
             return;
 
-        Vector3 velocity = rb.linearVelocity;
-        float newY = velocity.y;
+        float newY = command.OverrideY ? command.TargetVelocity.y : rb.linearVelocity.y;
 
         if (newY > 0f)
         {
@@ -724,128 +880,142 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (newY < -wallSlideSpeed)
             newY = -wallSlideSpeed;
 
-        rb.linearVelocity = new Vector3(
-            0f,
-            newY,
-            lockZ ? 0f : velocity.z
-        );
+        command.TargetVelocity.x = 0f;
+        command.TargetVelocity.y = newY;
+        command.OverrideX = true;
+        command.OverrideY = true;
     }
 
-    private bool TryConsumeWallJump()
+    private bool TryBuildWallJump(ref VelocityCommand25D command)
     {
-        if (!isWallSliding)
+        if (!state.IsWallSliding)
             return false;
 
-        bool buffered = (Time.time - lastJumpPressedTime) <= jumpBuffer;
+        bool buffered = (Time.time - state.LastJumpPressedTime) <= jumpBuffer;
         if (!buffered)
             return false;
 
-        int jumpedFromWallSide = wallSlideSide;
+        int jumpedFromWallSide = state.WallSlideSide;
         float jumpDirectionX = jumpedFromWallSide == WallSideLeft ? 1f : -1f;
 
-        pendingSlopeStickAfterJump = false;
-        slopeLockUntilTime = InvalidPastTime;
+        state.PendingSlopeStickAfterJump = false;
+        state.SlopeLockUntilTime = InvalidPastTime;
         UpdateSlopeXConstraint(false);
-        jumpBlockedUntilTime = InvalidPastTime;
+        state.JumpBlockedUntilTime = InvalidPastTime;
 
-        Vector3 velocity = rb.linearVelocity;
-        rb.linearVelocity = new Vector3(
-            jumpDirectionX * wallJumpHorizontalSpeed,
-            wallJumpVerticalSpeed,
-            lockZ ? 0f : velocity.z
-        );
+        command.TargetVelocity.x = jumpDirectionX * wallJumpHorizontalSpeed;
+        command.TargetVelocity.y = wallJumpVerticalSpeed;
+        command.OverrideX = true;
+        command.OverrideY = true;
+        command.ConsumedWallJump = true;
 
         if (enableDoubleJump)
-            jumpsRemaining = allowDoubleJumpAfterWallJump ? 1 : 0;
+            state.JumpsRemaining = allowDoubleJumpAfterWallJump ? 1 : 0;
         else
-            jumpsRemaining = 0;
+            state.JumpsRemaining = 0;
 
         if (enableWallReattachCooldown)
         {
-            wallReattachLockedSide = jumpedFromWallSide;
-            wallReattachLockUntilTime = Time.time + wallReattachCooldown;
+            state.WallReattachLockedSide = jumpedFromWallSide;
+            state.WallReattachLockUntilTime = Time.time + wallReattachCooldown;
         }
         else
         {
-            wallReattachLockedSide = WallSideNone;
-            wallReattachLockUntilTime = InvalidPastTime;
+            state.WallReattachLockedSide = WallSideNone;
+            state.WallReattachLockUntilTime = InvalidPastTime;
         }
 
         ClearWallSlideState();
-
-        lastJumpPressedTime = InvalidPastTime;
-        lastJumpExecutedTime = Time.time;
-
+        state.LastJumpPressedTime = InvalidPastTime;
+        state.LastJumpExecutedTime = Time.time;
+        RecordSelfJump(SelfJumpKind.SingleJump);
         return true;
     }
 
-    private void TryConsumeBufferedJump(GroundInfo ground, float currentPlanarSpeed)
+    private bool TryBuildGroundOrAirJump(ref VelocityCommand25D command, SurfaceContacts25D contacts, float currentPlanarSpeed, bool noRawInput)
     {
-        bool buffered = (Time.time - lastJumpPressedTime) <= jumpBuffer;
+        bool buffered = (Time.time - state.LastJumpPressedTime) <= jumpBuffer;
         if (!buffered)
-            return;
+            return false;
 
         if (IsJumpTemporarilyBlocked())
-            return;
+            return false;
 
-        bool canCoyote = (Time.time - lastGroundedTime) <= coyoteTime;
-
-        bool groundJumpAllowed = (isGrounded || canCoyote) && jumpsRemaining > 0;
-        bool airJumpAllowed = enableDoubleJump && jumpsRemaining > 0 && (!isGrounded && !canCoyote);
+        bool canCoyote = (Time.time - state.LastGroundedTime) <= coyoteTime;
+        bool groundJumpAllowed = (state.IsGrounded || canCoyote) && state.JumpsRemaining > 0;
+        bool airJumpAllowed = enableDoubleJump && state.JumpsRemaining > 0 && (!state.IsGrounded && !canCoyote);
 
         if (!doubleJumpOnlyInAir)
-            airJumpAllowed = enableDoubleJump && jumpsRemaining > 0 && !isGrounded;
+            airJumpAllowed = enableDoubleJump && state.JumpsRemaining > 0 && !state.IsGrounded;
 
         if (!groundJumpAllowed && !airJumpAllowed)
-            return;
+            return false;
 
-        bool isFirstJump = !enableDoubleJump || jumpsRemaining >= 2;
+        bool isFirstJump = !enableDoubleJump || state.JumpsRemaining >= 2;
         bool isDoubleJump = !isFirstJump;
-
         float impulse = isFirstJump ? jumpImpulse : doubleJumpImpulse;
+        float takeoffSpeed = GetTakeoffSpeedFromImpulse(impulse);
 
         bool jumpedFromStandstillOnSlope =
             stickToSlopeAfterVerticalJump &&
-            isGrounded &&
-            ground.onSlope &&
-            Mathf.Abs(inputX) <= InputEpsilon &&
+            state.IsGrounded &&
+            contacts.OnSlope &&
+            noRawInput &&
             Mathf.Abs(currentPlanarSpeed) <= slopeLandingStickSpeed;
 
-        pendingSlopeStickAfterJump = jumpedFromStandstillOnSlope;
-
-        slopeLockUntilTime = InvalidPastTime;
+        state.PendingSlopeStickAfterJump = jumpedFromStandstillOnSlope;
+        state.SlopeLockUntilTime = InvalidPastTime;
         UpdateSlopeXConstraint(false);
-        jumpBlockedUntilTime = InvalidPastTime;
+        state.JumpBlockedUntilTime = InvalidPastTime;
 
-        Vector3 velocity = rb.linearVelocity;
-        rb.linearVelocity = new Vector3(
-            velocity.x,
-            0f,
-            lockZ ? 0f : velocity.z
-        );
-
-        rb.AddForce(Vector3.up * impulse, ForceMode.Impulse);
+        command.TargetVelocity.y = takeoffSpeed;
+        command.OverrideY = true;
+        command.ConsumedGroundJump = true;
 
         if (isDoubleJump)
         {
-            usedDoubleJumpSinceLastGrounded = true;
+            state.UsedDoubleJumpSinceLastGrounded = true;
             ActivateDoubleJumpSpeedBoostIfNeeded();
         }
 
-        jumpsRemaining = Mathf.Max(0, jumpsRemaining - 1);
-        lastJumpPressedTime = InvalidPastTime;
-        lastJumpExecutedTime = Time.time;
+        state.JumpsRemaining = Mathf.Max(0, state.JumpsRemaining - 1);
+        state.LastJumpPressedTime = InvalidPastTime;
+        state.LastJumpExecutedTime = Time.time;
+        RecordSelfJump(isDoubleJump ? SelfJumpKind.DoubleJump : SelfJumpKind.SingleJump);
+        return true;
     }
 
-    private float GetCurrentPlanarSpeed(Vector3 velocity, GroundInfo ground, bool justLanded)
+    private void ApplyVelocityCommand(VelocityCommand25D command)
     {
-        if (!ground.onSlope)
+        Vector3 velocity = rb.linearVelocity;
+
+        if (command.OverrideX)
+            velocity.x = command.TargetVelocity.x;
+        if (command.OverrideY)
+            velocity.y = command.TargetVelocity.y;
+        if (lockZ)
+            velocity.z = 0f;
+
+        rb.linearVelocity = velocity;
+    }
+
+    private void UpdateCurrentHorizontalSpeed(SurfaceContacts25D contacts)
+    {
+        Vector3 velocity = rb.linearVelocity;
+        currentHorizontalSpeedAbs = contacts.OnSlope
+            ? Mathf.Abs(Vector3.Dot(velocity, contacts.SlopeTangent))
+            : Mathf.Abs(velocity.x);
+    }
+
+    private float GetCurrentPlanarSpeed(Vector3 velocity, SurfaceContacts25D contacts, bool justLanded)
+    {
+        if (!contacts.OnSlope)
             return velocity.x;
 
         if (justLanded)
-            return ConvertWorldXToSlopeSpeed(velocity.x, ground.slopeTangent);
+            return ConvertWorldXToSlopeSpeed(velocity.x, contacts.SlopeTangent);
 
-        return Vector3.Dot(velocity, ground.slopeTangent);
+        return Vector3.Dot(velocity, contacts.SlopeTangent);
     }
 
     private float ConvertWorldXToSlopeSpeed(float worldX, Vector3 slopeTangent)
@@ -858,7 +1028,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private float GetEffectiveMoveSpeed()
     {
-        if (!enableDoubleJumpSpeedBoost || !isDoubleJumpSpeedBoostActive)
+        if (!enableDoubleJumpSpeedBoost || !state.IsDoubleJumpSpeedBoostActive)
             return moveSpeed;
 
         return moveSpeed + doubleJumpMoveSpeedBonus;
@@ -869,14 +1039,26 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (!enableDoubleJumpSpeedBoost)
             return;
 
-        isDoubleJumpSpeedBoostActive = true;
+        state.IsDoubleJumpSpeedBoostActive = true;
     }
 
     private void ClearDoubleJumpRuntimeState()
     {
-        usedDoubleJumpSinceLastGrounded = false;
-        isDoubleJumpSpeedBoostActive = false;
-        jumpBlockedUntilTime = InvalidPastTime;
+        state.UsedDoubleJumpSinceLastGrounded = false;
+        state.IsDoubleJumpSpeedBoostActive = false;
+        state.JumpBlockedUntilTime = InvalidPastTime;
+    }
+
+    private void RecordSelfJump(SelfJumpKind jumpKind)
+    {
+        state.LastSelfJumpKind = jumpKind;
+        state.LastSelfJumpStateVersion++;
+    }
+
+    private void ClearLastSelfJumpState()
+    {
+        state.LastSelfJumpKind = SelfJumpKind.None;
+        state.LastSelfJumpStateVersion++;
     }
 
     private void ApplyManagedConstraints(bool freezeX)
@@ -913,23 +1095,21 @@ public sealed class RBCharacter25D : MonoBehaviour
         ApplyManagedConstraints(slopeXLocked);
     }
 
-    private void TryStartSlopeLandingLock(GroundInfo ground, float landingPlanarSpeed)
+    private void TryStartSlopeLandingLock(SurfaceContacts25D contacts, float landingPlanarSpeed)
     {
-        bool requestedByVerticalJumpStick = pendingSlopeStickAfterJump;
-        pendingSlopeStickAfterJump = false;
+        bool requestedByVerticalJumpStick = state.PendingSlopeStickAfterJump;
+        state.PendingSlopeStickAfterJump = false;
 
         if (!stickToSlopeAfterVerticalJump)
             return;
-
-        if (!ground.onSlope)
+        if (!contacts.OnSlope)
             return;
-
         if (Mathf.Abs(inputX) > InputEpsilon)
             return;
 
         if (requestedByVerticalJumpStick || Mathf.Abs(landingPlanarSpeed) <= slopeLandingStickSpeed)
         {
-            slopeLockUntilTime = Time.time + slopeLandingLockTime;
+            state.SlopeLockUntilTime = Time.time + slopeLandingLockTime;
             smoothedInputX = 0f;
             currentHorizontalSpeedAbs = 0f;
         }
@@ -937,14 +1117,10 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private bool IsSlopeLandingLockActive()
     {
-        return Time.time < slopeLockUntilTime;
+        return Time.time < state.SlopeLockUntilTime;
     }
 
-    private bool ShouldLockSlopeX(
-        GroundInfo ground,
-        bool noRawInput,
-        float currentPlanarSpeed,
-        float downhillSignedSpeed)
+    private bool ShouldLockSlopeX(SurfaceContacts25D contacts, bool noRawInput, float currentPlanarSpeed, float downhillSignedSpeed)
     {
         bool canHardLockBySpeed =
             IsSlopeLandingLockActive() ||
@@ -954,8 +1130,8 @@ public sealed class RBCharacter25D : MonoBehaviour
         return
             freezeXWhenIdleOnSlope &&
             lockZ &&
-            isGrounded &&
-            ground.onSlope &&
+            state.IsGrounded &&
+            contacts.OnSlope &&
             noRawInput &&
             canHardLockBySpeed;
     }
@@ -973,11 +1149,11 @@ public sealed class RBCharacter25D : MonoBehaviour
         float firstJumpVelocity = requiredGravity * apexTime;
 
         runtimeGravityScale = requiredGravity / globalGravity;
-        jumpImpulse = rb.mass * firstJumpVelocity;
+        jumpImpulse = rb != null ? rb.mass * firstJumpVelocity : firstJumpVelocity;
 
         float secondJumpHeightUnits = doubleJumpHeightPixels / Mathf.Max(DotEpsilon, pixelsPerUnit);
         float secondJumpVelocity = Mathf.Sqrt(Mathf.Max(0f, 2f * requiredGravity * secondJumpHeightUnits));
-        doubleJumpImpulse = rb.mass * secondJumpVelocity;
+        doubleJumpImpulse = rb != null ? rb.mass * secondJumpVelocity : secondJumpVelocity;
     }
 
     private float GetEffectiveGravityScale()
@@ -998,226 +1174,27 @@ public sealed class RBCharacter25D : MonoBehaviour
         rb.AddForce(Physics.gravity * extraScale, ForceMode.Acceleration);
     }
 
-    private void ApplySlopeAntiSlide(GroundInfo ground)
+    private float GetTakeoffSpeedFromImpulse(float impulse)
     {
-        if (!enableSlopeHandling)
-            return;
-
-        if (!isGrounded || !ground.onSlope || ground.hit.collider == null)
-            return;
-
-        Vector3 effectiveGravity = Physics.gravity * GetEffectiveGravityScale();
-        Vector3 gravityAlongSlope = Vector3.ProjectOnPlane(effectiveGravity, ground.hit.normal);
-
-        rb.AddForce(-gravityAlongSlope, ForceMode.Acceleration);
+        float mass = rb != null ? Mathf.Max(DotEpsilon, rb.mass) : 1f;
+        return impulse / mass;
     }
 
-    private GroundInfo ProbeGround()
+    private void UpdateWallSlideState(SurfaceContacts25D contacts)
     {
-        GroundInfo ground = default;
-        ground.slopeTangent = Vector3.right;
-        ground.downhillSign = 1f;
-
-        if (!TryGetGroundHit(out RaycastHit hit))
-            return ground;
-
-        ground.grounded = true;
-        ground.hit = hit;
-
-        FillSlopeData(ref ground);
-        return ground;
-    }
-
-    private void FillSlopeData(ref GroundInfo ground)
-    {
-        if (!enableSlopeHandling || !ground.grounded || ground.hit.collider == null)
-            return;
-
-        ground.slopeAngle = Vector3.Angle(ground.hit.normal, Vector3.up);
-        if (ground.slopeAngle < slopeMinAngle || ground.slopeAngle >= 89f)
-            return;
-
-        Vector3 tangent;
-
-        if (lockZ)
-        {
-            tangent = Vector3.Cross(Vector3.forward, ground.hit.normal);
-            tangent.z = 0f;
-        }
-        else
-        {
-            tangent = Vector3.ProjectOnPlane(Vector3.right, ground.hit.normal);
-        }
-
-        float magnitude = tangent.magnitude;
-        if (magnitude < DotEpsilon)
-            return;
-
-        tangent /= magnitude;
-
-        if (Vector3.Dot(tangent, Vector3.right) < 0f)
-            tangent = -tangent;
-
-        Vector3 downhill = Vector3.ProjectOnPlane(Physics.gravity, ground.hit.normal);
-
-        ground.onSlope = true;
-        ground.slopeTangent = tangent;
-        ground.downhillSign = Vector3.Dot(tangent, downhill) >= 0f ? 1f : -1f;
-    }
-
-    private bool TryGetGroundHit(out RaycastHit bestHit)
-    {
-        bestHit = default;
-
-        Bounds bounds = col.bounds;
-        float baseRadius = Mathf.Min(bounds.extents.x, bounds.extents.z);
-        float probeRadius = Mathf.Max(0.02f, baseRadius - groundProbeInset);
-
-        float z = lockZ ? lockedZ : bounds.center.z;
-
-        Vector3 origin = new Vector3(
-            bounds.center.x,
-            bounds.min.y + probeRadius + groundProbeStartOffset,
-            z
-        );
-
-        float castDistance = groundProbeDistance + groundProbeStartOffset;
-
-        int hitCount = Physics.SphereCastNonAlloc(
-            origin,
-            probeRadius,
-            Vector3.down,
-            castHits,
-            castDistance,
-            groundMask,
-            QueryTriggerInteraction.Ignore
-        );
-
-        bool found = false;
-        float bestDistance = float.MaxValue;
-        float bestNormalY = -1f;
-
-        for (int i = 0; i < hitCount; i++)
-        {
-            RaycastHit hit = castHits[i];
-
-            if (hit.collider == null) continue;
-            if (hit.collider.attachedRigidbody == rb) continue;
-            if (hit.normal.y <= 0.05f) continue;
-
-            bool betterHit =
-                !found ||
-                hit.distance < bestDistance - HitDistanceTieEpsilon ||
-                (
-                    Mathf.Abs(hit.distance - bestDistance) <= HitDistanceTieEpsilon &&
-                    hit.normal.y > bestNormalY
-                );
-
-            if (!betterHit)
-                continue;
-
-            found = true;
-            bestDistance = hit.distance;
-            bestNormalY = hit.normal.y;
-            bestHit = hit;
-        }
-
-        return found;
-    }
-
-    private WallInfo CheckWalls()
-    {
-        WallInfo wall = default;
-
-        Bounds bounds = col.bounds;
-        float z = lockZ ? lockedZ : bounds.center.z;
-
-        Vector3 origin = new Vector3(
-            bounds.center.x,
-            bounds.center.y + wallCheckHeightOffset,
-            z
-        );
-
-        float radius = Mathf.Max(0.001f, wallCheckRadius);
-
-        wall.blockedRight = TryGetWallHit(origin, radius, Vector3.right, wallCheckDistance, out wall.rightHit);
-        wall.blockedLeft = TryGetWallHit(origin, radius, Vector3.left, wallCheckDistance, out wall.leftHit);
-
-        return wall;
-    }
-
-    private bool TryGetWallHit(
-        Vector3 origin,
-        float radius,
-        Vector3 direction,
-        float distance,
-        out RaycastHit bestHit)
-    {
-        bestHit = default;
-
-        int hitCount = Physics.SphereCastNonAlloc(
-            origin,
-            radius,
-            direction,
-            castHits,
-            distance,
-            groundMask,
-            QueryTriggerInteraction.Ignore
-        );
-
-        bool found = false;
-        float bestDistance = float.MaxValue;
-
-        for (int i = 0; i < hitCount; i++)
-        {
-            RaycastHit hit = castHits[i];
-
-            if (hit.collider == null) continue;
-            if (hit.collider.attachedRigidbody == rb) continue;
-
-            if (Vector3.Dot(hit.normal, direction) >= -0.1f)
-                continue;
-
-            if (!IsWallNormal(hit.normal))
-                continue;
-
-            if (!found || hit.distance < bestDistance)
-            {
-                found = true;
-                bestDistance = hit.distance;
-                bestHit = hit;
-            }
-        }
-
-        return found;
-    }
-
-    private bool IsWallNormal(Vector3 normal)
-    {
-        return Mathf.Abs(normal.x) >= wallMinNormalX && Mathf.Abs(normal.y) <= wallMaxNormalY;
-    }
-
-    private void UpdateWallSlideState(WallInfo wall)
-    {
-        if (!enableWallSlide)
+        if (IsVaultingNow || !enableWallSlide || state.IsGrounded)
         {
             ClearWallSlideState();
             return;
         }
 
-        if (isGrounded)
+        if (state.IsWallSliding)
         {
-            ClearWallSlideState();
-            return;
-        }
-
-        if (isWallSliding)
-        {
-            bool stillTouchingCurrentWall = IsTouchingWallSide(wall, wallSlideSide);
+            bool stillTouchingCurrentWall = IsTouchingWallSide(contacts, state.WallSlideSide);
             if (!stillTouchingCurrentWall)
             {
                 ClearWallSlideState();
-                TryStartWallLatch(wall);
+                TryStartWallLatch(contacts);
                 return;
             }
 
@@ -1230,18 +1207,13 @@ public sealed class RBCharacter25D : MonoBehaviour
             return;
         }
 
-        TryStartWallLatch(wall);
+        TryStartWallLatch(contacts);
     }
 
-    private void TryStartWallLatch(WallInfo wall)
+    private void TryStartWallLatch(SurfaceContacts25D contacts)
     {
-        bool canLatchLeft =
-            wall.blockedLeft &&
-            CanLatchToWallSide(WallSideLeft);
-
-        bool canLatchRight =
-            wall.blockedRight &&
-            CanLatchToWallSide(WallSideRight);
+        bool canLatchLeft = contacts.BlockedLeft && CanLatchToWallSide(WallSideLeft);
+        bool canLatchRight = contacts.BlockedRight && CanLatchToWallSide(WallSideRight);
 
         if (!canLatchLeft && !canLatchRight)
             return;
@@ -1291,21 +1263,17 @@ public sealed class RBCharacter25D : MonoBehaviour
     {
         if (side == WallSideLeft)
             return inputX < -InputEpsilon;
-
         if (side == WallSideRight)
             return inputX > InputEpsilon;
-
         return false;
     }
 
     private bool WantsToDetachFromCurrentWall()
     {
-        if (wallSlideSide == WallSideLeft)
+        if (state.WallSlideSide == WallSideLeft)
             return inputX > InputEpsilon;
-
-        if (wallSlideSide == WallSideRight)
+        if (state.WallSlideSide == WallSideRight)
             return inputX < -InputEpsilon;
-
         return false;
     }
 
@@ -1313,91 +1281,92 @@ public sealed class RBCharacter25D : MonoBehaviour
     {
         if (!detachFromWallOnOppositeInput)
         {
-            wallDetachHoldTimer = 0f;
+            state.WallDetachHoldTimer = 0f;
             return false;
         }
 
         if (!WantsToDetachFromCurrentWall())
         {
-            wallDetachHoldTimer = 0f;
+            state.WallDetachHoldTimer = 0f;
             return false;
         }
 
-        wallDetachHoldTimer += Time.fixedDeltaTime;
-        return wallDetachHoldTimer >= wallDetachHoldTime;
+        state.WallDetachHoldTimer += Time.fixedDeltaTime;
+        return state.WallDetachHoldTimer >= wallDetachHoldTime;
     }
 
-    private bool IsTouchingWallSide(WallInfo wall, int side)
+    private bool IsTouchingWallSide(SurfaceContacts25D contacts, int side)
     {
         if (side == WallSideLeft)
-            return wall.blockedLeft;
-
+            return contacts.BlockedLeft;
         if (side == WallSideRight)
-            return wall.blockedRight;
-
+            return contacts.BlockedRight;
         return false;
     }
 
     private void SetWallSlideState(int side)
     {
-        isWallSliding = true;
-        wallSlideSide = side;
-        wallDetachHoldTimer = 0f;
+        state.IsWallSliding = true;
+        state.WallSlideSide = side;
+        state.WallDetachHoldTimer = 0f;
     }
 
     private void ClearWallSlideState()
     {
-        isWallSliding = false;
-        wallSlideSide = WallSideNone;
-        wallDetachHoldTimer = 0f;
+        bool wasWallSliding = state.IsWallSliding;
+
+        state.IsWallSliding = false;
+        state.WallSlideSide = WallSideNone;
+        state.WallDetachHoldTimer = 0f;
+
+        if (wasWallSliding)
+            LastWallSlideFinishedTime = Time.time;
     }
 
     private bool IsWallReattachLockedForSide(int side)
     {
         if (!enableWallReattachCooldown)
             return false;
-
-        if (wallReattachLockedSide != side)
+        if (state.WallReattachLockedSide != side)
             return false;
-
-        return Time.time < wallReattachLockUntilTime;
+        return Time.time < state.WallReattachLockUntilTime;
     }
 
     public void NotifyVaultStarted()
     {
-        pendingSlopeStickAfterJump = false;
-        slopeLockUntilTime = InvalidPastTime;
-        jumpBlockedUntilTime = InvalidPastTime;
-        lastJumpPressedTime = InvalidPastTime;
+        state.PendingSlopeStickAfterJump = false;
+        state.SlopeLockUntilTime = InvalidPastTime;
+        state.JumpBlockedUntilTime = InvalidPastTime;
+        state.LastJumpPressedTime = InvalidPastTime;
         smoothedInputX = 0f;
         currentHorizontalSpeedAbs = 0f;
 
         ClearWallSlideState();
+        ClearLastSelfJumpState();
         UpdateSlopeXConstraint(false);
 
-        if (rb != null)
+        if (rb != null && !rb.isKinematic)
         {
             Vector3 velocity = rb.linearVelocity;
-            rb.linearVelocity = new Vector3(
-                0f,
-                0f,
-                lockZ ? 0f : velocity.z
-            );
+            rb.linearVelocity = new Vector3(0f, 0f, lockZ ? 0f : velocity.z);
         }
     }
 
     public void NotifyVaultFinished()
     {
-        pendingSlopeStickAfterJump = false;
-        slopeLockUntilTime = InvalidPastTime;
-        jumpBlockedUntilTime = InvalidPastTime;
+        state.PendingSlopeStickAfterJump = false;
+        state.SlopeLockUntilTime = InvalidPastTime;
+        state.JumpBlockedUntilTime = InvalidPastTime;
         currentHorizontalSpeedAbs = 0f;
-        lastGroundedTime = Time.time;
+        state.LastGroundedTime = Time.time;
 
         ResetJumpCounter();
         ClearDoubleJumpRuntimeState();
+        ClearLastSelfJumpState();
         ClearWallSlideState();
         UpdateSlopeXConstraint(false);
+
+        LastVaultFinishedTime = Time.time;
     }
 
     private void LogAccelerationDebug(
@@ -1406,7 +1375,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         float resolvedPlanarSpeed,
         bool blockedLeft,
         bool blockedRight,
-        GroundInfo ground,
+        SurfaceContacts25D contacts,
         float downhillSignedSpeed)
     {
         if (!debugAcceleration)
@@ -1427,58 +1396,31 @@ public sealed class RBCharacter25D : MonoBehaviour
             $"speedAbs={currentHorizontalSpeedAbs:0.00} " +
             $"speedNorm={SpeedNormalized:0.00} " +
             $"effectiveMoveSpeed={EffectiveMoveSpeed:0.00} " +
-            $"boostActive={isDoubleJumpSpeedBoostActive} " +
-            $"doubleJumpUsed={usedDoubleJumpSinceLastGrounded} " +
+            $"boostActive={state.IsDoubleJumpSpeedBoostActive} " +
+            $"doubleJumpUsed={state.UsedDoubleJumpSinceLastGrounded} " +
             $"jumpBlocked={IsJumpTemporarilyBlocked()} " +
-            $"grounded={isGrounded} " +
-            $"wallSliding={isWallSliding} " +
-            $"wallSide={wallSlideSide} " +
+            $"grounded={state.IsGrounded} " +
+            $"wallSliding={state.IsWallSliding} " +
+            $"wallSide={state.WallSlideSide} " +
             $"velY={rb.linearVelocity.y:0.00} " +
-            $"onSlope={ground.onSlope} " +
-            $"slopeAngle={ground.slopeAngle:0.0} " +
+            $"onSlope={contacts.OnSlope} " +
+            $"slopeAngle={contacts.SlopeAngle:0.0} " +
             $"downhillSigned={downhillSignedSpeed:0.00} " +
             $"xLocked={slopeXLocked} " +
             $"blockedL={blockedLeft} " +
             $"blockedR={blockedRight}",
-            this
-        );
+            this);
     }
 
     private void OnDrawGizmosSelected()
     {
-        CapsuleCollider capsule = GetComponent<CapsuleCollider>();
-        if (capsule == null)
-            return;
+        if (col == null)
+            col = GetComponent<CapsuleCollider>();
+        if (rb == null)
+            rb = GetComponent<Rigidbody>();
 
-        Bounds bounds = capsule.bounds;
-        float baseRadius = Mathf.Min(bounds.extents.x, bounds.extents.z);
-        float probeRadius = Mathf.Max(0.02f, baseRadius - groundProbeInset);
-
-        float z = lockZ ? (Application.isPlaying ? lockedZ : transform.position.z) : bounds.center.z;
-
-        Vector3 probeOrigin = new Vector3(
-            bounds.center.x,
-            bounds.min.y + probeRadius + groundProbeStartOffset,
-            z
-        );
-
-        float probeDepth = groundProbeDistance + groundProbeStartOffset;
-
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(probeOrigin, probeRadius);
-        Gizmos.DrawLine(probeOrigin, probeOrigin + Vector3.down * probeDepth);
-        Gizmos.DrawWireSphere(probeOrigin + Vector3.down * probeDepth, probeRadius);
-
-        Gizmos.color = Color.cyan;
-        Vector3 wallOrigin = new Vector3(
-            bounds.center.x,
-            bounds.center.y + wallCheckHeightOffset,
-            z
-        );
-
-        Gizmos.DrawLine(wallOrigin, wallOrigin + Vector3.right * wallCheckDistance);
-        Gizmos.DrawLine(wallOrigin, wallOrigin + Vector3.left * wallCheckDistance);
-        Gizmos.DrawWireSphere(wallOrigin + Vector3.right * wallCheckDistance, wallCheckRadius);
-        Gizmos.DrawWireSphere(wallOrigin + Vector3.left * wallCheckDistance, wallCheckRadius);
+        EnsureSurfaceSensor();
+        SyncSurfaceSensor();
+        surfaceSensor.DrawGizmos();
     }
 }

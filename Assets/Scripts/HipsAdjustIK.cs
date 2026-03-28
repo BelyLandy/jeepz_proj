@@ -75,21 +75,29 @@ public class HipsAdjustIK : MonoBehaviour
     [SerializeField] private LegSetup leftLeg = new LegSetup { label = "Left Leg" };
 
     [Header("Reach settings")]
+    [Tooltip("Насколько использовать реальную длину ноги. 0.98 обычно хорошо, чтобы оставался небольшой сгиб.")]
     [Range(0.85f, 1.05f)]
     [SerializeField] private float legReachMultiplier = 0.98f;
 
+    [Tooltip("Дополнительный запас, чтобы колено не выпрямлялось в ноль.")]
     [SerializeField, Min(0f)] private float keepKneeBendDistance = 0.02f;
 
+    [Tooltip("Насколько сильно таз реагирует на недостачу длины ноги.")]
     [SerializeField, Min(0f)] private float pelvisResponse = 1f;
 
+    [Tooltip("Максимум, насколько таз может опуститься вниз.")]
     [SerializeField, Min(0f)] private float maxHipDrop = 0.35f;
 
+    [Tooltip("Иногда полезно разрешить чуть приподнимать таз выше базовой позиции. Обычно не нужно.")]
     [SerializeField] private bool allowHipRise = false;
 
+    [Tooltip("Максимум, насколько таз может подняться вверх относительно базы.")]
     [SerializeField, Min(0f)] private float maxHipRise = 0.05f;
 
+    [Tooltip("Использовать максимум из двух ног. Обычно это лучший вариант.")]
     [SerializeField] private bool useMaxLegDemand = true;
 
+    [Tooltip("Нога влияет на таз только если её IK вес выше этого значения.")]
     [SerializeField, Range(0f, 1f)] private float minLegIKWeightToAffectHips = 0.05f;
 
     [Header("Smoothing")]
@@ -241,7 +249,7 @@ public class HipsAdjustIK : MonoBehaviour
 
         float currentDistance = Vector3.Distance(leg.upperBone.position, leg.ikTarget.position);
 
-        // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ.
+        // Если нога не достаёт — таз надо опустить вниз.
         float overExtension = currentDistance - maxReach;
         demand = Mathf.Max(0f, overExtension) * ikWeight * leg.influence;
 
