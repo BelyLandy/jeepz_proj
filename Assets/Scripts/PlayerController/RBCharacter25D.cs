@@ -101,6 +101,28 @@ public sealed class RBCharacter25D : MonoBehaviour
     [Tooltip("Импульс второго прыжка (будет перезаписан авто-настройкой, если autoTuneJump=true).")]
     [SerializeField] private float doubleJumpImpulse = 18.75733f;
 
+    [Header("Vault Exit Speed")]
+    [Tooltip("Сохранять горизонтальную скорость X после завершения vault.")]
+    [SerializeField] private bool preserveHorizontalSpeedAfterVault = true;
+
+    [Tooltip("Множитель сохранённой скорости X на выходе из vault.")]
+    [SerializeField] private float vaultExitHorizontalSpeedMultiplier = 0.9f;
+
+    [Tooltip("Возвращать скорость только если игрок всё ещё держит то же направление, что и до vault.")]
+    [SerializeField] private bool requireHeldDirectionForVaultSpeedRestore = true;
+
+    [Tooltip("Минимальный модуль скорости X, который вообще имеет смысл восстанавливать после vault.")]
+    [SerializeField] private float vaultExitMinRestoreSpeed = 0.05f;
+
+    [Header("Lock Stance")]
+    [SerializeField] private bool enableLockStance = true;
+
+    [Tooltip("Если кнопку LockStance зажали в воздухе, стойка включится при приземлении, пока кнопка все еще удерживается.")]
+    [SerializeField] private bool queueLockStanceIfPressedInAir = true;
+
+    [Tooltip("Разрешать ли прыжок, пока LockStance уже вошел в активный режим.")]
+    [SerializeField] private bool allowJumpWhileLockStance = true;
+
     [Header("Wall Stop")]
     [Tooltip("Дистанция проверки стены в сторону движения (world units).")]
     [SerializeField] private float wallCheckDistance = 0.5f;
@@ -122,6 +144,9 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     [Tooltip("Сколько времени нужно удерживать направление от стены, чтобы отцепиться.")]
     [SerializeField] private float wallDetachHoldTime = 0.3f;
+
+    [Tooltip("Какой по силе противоположный horizontal input нужен для detach от стены. Полезно против случайного дрейфа стика.")]
+    [SerializeField, Range(0f, 1f)] private float wallDetachOppositeInputThreshold = 0.35f;
 
     [Tooltip("Максимальная скорость скольжения вниз по стене.")]
     [SerializeField] private float wallSlideSpeed = 2.5f;
@@ -192,10 +217,15 @@ public sealed class RBCharacter25D : MonoBehaviour
     private float inputX;
     private float externalMoveX;
     private bool externalJumpHeld;
+    private bool externalLockStanceHeld;
+    private bool lockStanceLatched;
+    private bool lockStanceQueued;
     private bool externalJumpPressedQueued;
     private bool externalJumpReleasedQueued;
     private float smoothedInputX;
     private float currentHorizontalSpeedAbs;
+    private float pendingVaultExitVelocityX;
+    private bool hasPendingVaultExitVelocityRestore;
     private float lastNonZeroInputX = 1f;
     private float lastDebugLogTime = InvalidPastTime;
     private float runtimeGravityScale = 1f;
@@ -207,6 +237,11 @@ public sealed class RBCharacter25D : MonoBehaviour
     public float LastVaultFinishedTime { get; private set; } = InvalidPastTime;
     public float LastWallSlideFinishedTime { get; private set; } = InvalidPastTime;
     public int WallSlideSide => state.WallSlideSide;
+    public bool IsLockStanceHeld => externalLockStanceHeld;
+    public bool IsLockStanceLatched => enableLockStance && lockStanceLatched;
+    public bool IsLockStanceQueued => enableLockStance && lockStanceQueued;
+    public bool IsLockStanceMovementActive => IsLockStanceLatched;
+    public bool IsLockStanceGroundActive => IsLockStanceLatched && state.IsGrounded;
     public float LastJumpTime => state.LastJumpExecutedTime;
     public SelfJumpKind LastSelfJumpType => state.LastSelfJumpKind;
     public int LastSelfJumpStateVersion => state.LastSelfJumpStateVersion;
@@ -273,6 +308,15 @@ public sealed class RBCharacter25D : MonoBehaviour
         enableDoubleJump = true;
         doubleJumpOnlyInAir = true;
         doubleJumpImpulse = 18.75733f;
+
+        enableLockStance = true;
+        queueLockStanceIfPressedInAir = true;
+        allowJumpWhileLockStance = true;
+
+        preserveHorizontalSpeedAfterVault = true;
+        vaultExitHorizontalSpeedMultiplier = 0.9f;
+        requireHeldDirectionForVaultSpeedRestore = true;
+        vaultExitMinRestoreSpeed = 0.05f;
 
         wallCheckDistance = 0.5f;
         wallCheckHeightOffset = 0f;
@@ -344,13 +388,14 @@ public sealed class RBCharacter25D : MonoBehaviour
             state.IsDoubleJumpSpeedBoostActive = false;
 
         currentInput.RawX = inputX;
-        currentInput.JumpHeld = externalJumpHeld;
+        currentInput.JumpHeld = externalJumpHeld && (!IsLockStanceMovementActive || allowJumpWhileLockStance);
         currentInput.JumpPressed = false;
         currentInput.JumpReleased = false;
         currentInput.FacingSign = VaultFacingSignFromInput;
 
         lastContacts = GatherSurfaceContacts();
         UpdateGroundedState(lastContacts, out bool justLandedThisFixed, out bool leftGroundThisFixed);
+        ResolveLockStanceState();
 
         if (leftGroundThisFixed)
         {
@@ -361,7 +406,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (!state.IsGrounded && Mathf.Abs(inputX) > InputEpsilon)
             state.PendingSlopeStickAfterJump = false;
 
-        if (vaulting != null && vaulting.TryStartVault())
+        if (!IsLockStanceGroundActive && vaulting != null && vaulting.TryStartVault())
         {
             currentHorizontalSpeedAbs = 0f;
             state.WasGroundedLastFixed = false;
@@ -375,6 +420,15 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         VelocityCommand25D command = BuildVelocityCommand(currentInput, lastContacts, justLandedThisFixed);
         ApplyVelocityCommand(command);
+
+        if (IsLockStanceMovementActive)
+        {
+            Vector3 velocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(0f, velocity.y, lockZ ? 0f : velocity.z);
+
+            smoothedInputX = 0f;
+            currentHorizontalSpeedAbs = 0f;
+        }
 
         UpdateCurrentHorizontalSpeed(lastContacts);
         state.WasGroundedLastFixed = state.IsGrounded;
@@ -452,7 +506,10 @@ public sealed class RBCharacter25D : MonoBehaviour
         state.WallDetachHoldTimer = 0f;
         smoothedInputX = 0f;
         currentHorizontalSpeedAbs = 0f;
+        pendingVaultExitVelocityX = 0f;
+        hasPendingVaultExitVelocityRestore = false;
         externalMoveX = 0f;
+        externalLockStanceHeld = false;
         externalJumpHeld = false;
         externalJumpPressedQueued = false;
         externalJumpReleasedQueued = false;
@@ -502,9 +559,13 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         doubleJumpImpulse = Mathf.Max(0f, doubleJumpImpulse);
 
+        vaultExitHorizontalSpeedMultiplier = Mathf.Max(0f, vaultExitHorizontalSpeedMultiplier);
+        vaultExitMinRestoreSpeed = Mathf.Max(0f, vaultExitMinRestoreSpeed);
+
         wallCheckDistance = Mathf.Max(0.001f, wallCheckDistance);
         wallCheckRadius = Mathf.Max(0.001f, wallCheckRadius);
         wallDetachHoldTime = Mathf.Max(0f, wallDetachHoldTime);
+        wallDetachOppositeInputThreshold = Mathf.Clamp01(wallDetachOppositeInputThreshold);
         wallSlideSpeed = Mathf.Max(0f, wallSlideSpeed);
         wallUpwardDeceleration = Mathf.Max(0f, wallUpwardDeceleration);
         wallJumpHorizontalSpeed = Mathf.Max(0f, wallJumpHorizontalSpeed);
@@ -526,7 +587,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void ReadInput()
     {
-        inputX = externalMoveX;
+        inputX = IsLockStanceMovementActive ? 0f : externalMoveX;
 
         if (Mathf.Abs(inputX) > InputEpsilon)
             lastNonZeroInputX = Mathf.Sign(inputX);
@@ -534,6 +595,14 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (IsVaultingNow)
         {
             externalJumpPressedQueued = false;
+            return;
+        }
+
+        if (IsLockStanceMovementActive && !allowJumpWhileLockStance)
+        {
+            externalJumpPressedQueued = false;
+            currentInput.JumpPressed = false;
+            state.LastJumpPressedTime = InvalidPastTime;
             return;
         }
 
@@ -579,6 +648,17 @@ public sealed class RBCharacter25D : MonoBehaviour
         externalJumpHeld = held;
     }
 
+    public void SetLockStanceHeld(bool held)
+    {
+        externalLockStanceHeld = held;
+
+        if (held)
+            return;
+
+        lockStanceLatched = false;
+        lockStanceQueued = false;
+    }
+
     public void QueueJumpPressed()
     {
         externalJumpPressedQueued = true;
@@ -597,6 +677,51 @@ public sealed class RBCharacter25D : MonoBehaviour
         externalJumpHeld = false;
         externalJumpPressedQueued = false;
         externalJumpReleasedQueued = false;
+        externalLockStanceHeld = false;
+        lockStanceLatched = false;
+        lockStanceQueued = false;
+    }
+
+    private void ResolveLockStanceState()
+    {
+        bool wasLatched = lockStanceLatched;
+
+        if (!enableLockStance)
+        {
+            lockStanceLatched = false;
+            lockStanceQueued = false;
+            return;
+        }
+
+        if (!externalLockStanceHeld)
+        {
+            lockStanceLatched = false;
+            lockStanceQueued = false;
+            return;
+        }
+
+        if (lockStanceLatched)
+        {
+            lockStanceQueued = false;
+        }
+        else if (state.IsGrounded)
+        {
+            lockStanceLatched = true;
+            lockStanceQueued = false;
+        }
+        else
+        {
+            lockStanceQueued = queueLockStanceIfPressedInAir;
+        }
+
+        if (!wasLatched && lockStanceLatched)
+        {
+            smoothedInputX = 0f;
+            currentHorizontalSpeedAbs = 0f;
+
+            if (state.IsWallSliding)
+                ClearWallSlideState();
+        }
     }
 
     private SurfaceContacts25D GatherSurfaceContacts()
@@ -687,6 +812,12 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void UpdateSmoothedInput()
     {
+        if (IsLockStanceMovementActive)
+        {
+            smoothedInputX = 0f;
+            return;
+        }
+
         float desiredInput = inputX;
         float rampSpeed = Mathf.Abs(desiredInput) > Mathf.Abs(smoothedInputX)
             ? inputAcceleration
@@ -711,6 +842,21 @@ public sealed class RBCharacter25D : MonoBehaviour
         VelocityCommand25D command = default;
         command.TargetVelocity = rb.linearVelocity;
 
+        bool lockStanceMovementActive = IsLockStanceMovementActive;
+
+        if (lockStanceMovementActive)
+        {
+            input.RawX = 0f;
+            input.SmoothedX = 0f;
+
+            if (!allowJumpWhileLockStance)
+            {
+                input.JumpPressed = false;
+                input.JumpHeld = false;
+                input.JumpReleased = false;
+            }
+        }
+
         float currentPlanarSpeed = GetCurrentPlanarSpeed(command.TargetVelocity, contacts, justLandedThisFixed);
 
         if (justLandedThisFixed)
@@ -722,25 +868,29 @@ public sealed class RBCharacter25D : MonoBehaviour
         }
 
         bool noRawInput = Mathf.Abs(input.RawX) <= InputEpsilon;
-        float targetPlanarSpeed = BuildTargetHorizontalSpeed(input, contacts);
+        float targetPlanarSpeed = lockStanceMovementActive ? 0f : BuildTargetHorizontalSpeed(input, contacts);
         float downhillSignedSpeed = contacts.OnSlope ? currentPlanarSpeed * contacts.DownhillSign : 0f;
 
         bool shouldLockSlopeX = ShouldLockSlopeX(contacts, noRawInput, currentPlanarSpeed, downhillSignedSpeed) && !IsJumpBuffered();
         UpdateSlopeXConstraint(shouldLockSlopeX);
 
-        float resolvedPlanarSpeed = ResolvePlanarSpeed(
-            targetPlanarSpeed,
-            currentPlanarSpeed,
-            downhillSignedSpeed,
-            noRawInput,
-            contacts.BlockedLeft,
-            contacts.BlockedRight,
-            contacts.OnSlope);
+        float resolvedPlanarSpeed = lockStanceMovementActive
+            ? 0f
+            : ResolvePlanarSpeed(
+                targetPlanarSpeed,
+                currentPlanarSpeed,
+                downhillSignedSpeed,
+                noRawInput,
+                contacts.BlockedLeft,
+                contacts.BlockedRight,
+                contacts.OnSlope);
 
         ApplyHorizontalIntent(ref command, contacts, resolvedPlanarSpeed, shouldLockSlopeX, noRawInput);
 
+        bool blockJumpByLockStance = lockStanceMovementActive && !allowJumpWhileLockStance;
+
         bool consumedWallJump = TryBuildWallJump(ref command);
-        if (!consumedWallJump)
+        if (!consumedWallJump && !blockJumpByLockStance)
             TryBuildGroundOrAirJump(ref command, contacts, currentPlanarSpeed, noRawInput);
 
         ApplyVerticalRules(ref command);
@@ -914,18 +1064,17 @@ public sealed class RBCharacter25D : MonoBehaviour
         else
             state.JumpsRemaining = 0;
 
-        if (enableWallReattachCooldown)
-        {
-            state.WallReattachLockedSide = jumpedFromWallSide;
-            state.WallReattachLockUntilTime = Time.time + wallReattachCooldown;
-        }
-        else
-        {
-            state.WallReattachLockedSide = WallSideNone;
-            state.WallReattachLockUntilTime = InvalidPastTime;
-        }
+        LockWallReattachForSide(jumpedFromWallSide);
 
         ClearWallSlideState();
+
+        // Если wall jump выполнен во время удержания LockStance, прыжок от стены
+        // должен оставаться стандартным: не гасим его horizontal push.
+        // Поэтому снимаем latched и, если кнопка все еще удерживается, переводим
+        // стойку в queued, чтобы она вернулась уже после приземления.
+        lockStanceLatched = false;
+        lockStanceQueued = enableLockStance && externalLockStanceHeld && queueLockStanceIfPressedInAir;
+
         state.LastJumpPressedTime = InvalidPastTime;
         state.LastJumpExecutedTime = Time.time;
         RecordSelfJump(SelfJumpKind.SingleJump);
@@ -1182,7 +1331,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void UpdateWallSlideState(SurfaceContacts25D contacts)
     {
-        if (IsVaultingNow || !enableWallSlide || state.IsGrounded)
+        if (IsVaultingNow || IsLockStanceGroundActive || !enableWallSlide || state.IsGrounded)
         {
             ClearWallSlideState();
             return;
@@ -1200,7 +1349,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
             if (ShouldDetachFromCurrentWallByHold())
             {
-                ClearWallSlideState();
+                DetachFromCurrentWallByOppositeInput();
                 return;
             }
 
@@ -1270,16 +1419,28 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private bool WantsToDetachFromCurrentWall()
     {
+        float threshold = Mathf.Max(InputEpsilon, wallDetachOppositeInputThreshold);
+        float rawMoveX = externalMoveX;
+
         if (state.WallSlideSide == WallSideLeft)
-            return inputX > InputEpsilon;
+            return rawMoveX >= threshold;
         if (state.WallSlideSide == WallSideRight)
-            return inputX < -InputEpsilon;
+            return rawMoveX <= -threshold;
         return false;
     }
 
     private bool ShouldDetachFromCurrentWallByHold()
     {
         if (!detachFromWallOnOppositeInput)
+        {
+            state.WallDetachHoldTimer = 0f;
+            return false;
+        }
+
+        // Во время wall slide удержание LockStance отключает только detach
+        // по противоположному horizontal input. Сам wall slide и wall jump
+        // продолжают работать как обычно.
+        if (state.IsWallSliding && IsLockStanceHeld)
         {
             state.WallDetachHoldTimer = 0f;
             return false;
@@ -1293,6 +1454,26 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         state.WallDetachHoldTimer += Time.fixedDeltaTime;
         return state.WallDetachHoldTimer >= wallDetachHoldTime;
+    }
+
+    private void DetachFromCurrentWallByOppositeInput()
+    {
+        int detachedSide = state.WallSlideSide;
+        LockWallReattachForSide(detachedSide);
+        ClearWallSlideState();
+    }
+
+    private void LockWallReattachForSide(int side)
+    {
+        if (!enableWallReattachCooldown || side == WallSideNone)
+        {
+            state.WallReattachLockedSide = WallSideNone;
+            state.WallReattachLockUntilTime = InvalidPastTime;
+            return;
+        }
+
+        state.WallReattachLockedSide = side;
+        state.WallReattachLockUntilTime = Time.time + wallReattachCooldown;
     }
 
     private bool IsTouchingWallSide(SurfaceContacts25D contacts, int side)
@@ -1334,12 +1515,25 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     public void NotifyVaultStarted()
     {
+        float preVaultVelocityX = rb != null ? rb.linearVelocity.x : 0f;
+        NotifyVaultStarted(preVaultVelocityX);
+    }
+
+    public void NotifyVaultStarted(float preVaultVelocityX)
+    {
         state.PendingSlopeStickAfterJump = false;
         state.SlopeLockUntilTime = InvalidPastTime;
         state.JumpBlockedUntilTime = InvalidPastTime;
         state.LastJumpPressedTime = InvalidPastTime;
         smoothedInputX = 0f;
         currentHorizontalSpeedAbs = 0f;
+
+        hasPendingVaultExitVelocityRestore =
+            preserveHorizontalSpeedAfterVault &&
+            Mathf.Abs(preVaultVelocityX) >= vaultExitMinRestoreSpeed;
+        pendingVaultExitVelocityX = hasPendingVaultExitVelocityRestore
+            ? preVaultVelocityX * vaultExitHorizontalSpeedMultiplier
+            : 0f;
 
         ClearWallSlideState();
         ClearLastSelfJumpState();
@@ -1357,7 +1551,6 @@ public sealed class RBCharacter25D : MonoBehaviour
         state.PendingSlopeStickAfterJump = false;
         state.SlopeLockUntilTime = InvalidPastTime;
         state.JumpBlockedUntilTime = InvalidPastTime;
-        currentHorizontalSpeedAbs = 0f;
         state.LastGroundedTime = Time.time;
 
         ResetJumpCounter();
@@ -1366,6 +1559,41 @@ public sealed class RBCharacter25D : MonoBehaviour
         ClearWallSlideState();
         UpdateSlopeXConstraint(false);
 
+        float restoredVelocityX = 0f;
+        bool shouldRestoreVelocity = hasPendingVaultExitVelocityRestore;
+
+        if (shouldRestoreVelocity && requireHeldDirectionForVaultSpeedRestore)
+        {
+            shouldRestoreVelocity =
+                Mathf.Abs(externalMoveX) > InputEpsilon &&
+                Mathf.Abs(pendingVaultExitVelocityX) > vaultExitMinRestoreSpeed &&
+                Mathf.Sign(externalMoveX) == Mathf.Sign(pendingVaultExitVelocityX);
+        }
+
+        if (shouldRestoreVelocity)
+        {
+            restoredVelocityX = pendingVaultExitVelocityX;
+            float effectiveMoveSpeed = Mathf.Max(DotEpsilon, GetEffectiveMoveSpeed());
+            smoothedInputX = Mathf.Clamp(restoredVelocityX / effectiveMoveSpeed, -1f, 1f);
+            currentHorizontalSpeedAbs = Mathf.Abs(restoredVelocityX);
+
+            if (rb != null && !rb.isKinematic)
+            {
+                Vector3 velocity = rb.linearVelocity;
+                rb.linearVelocity = new Vector3(
+                    restoredVelocityX,
+                    0f,
+                    lockZ ? 0f : velocity.z);
+            }
+        }
+        else
+        {
+            smoothedInputX = 0f;
+            currentHorizontalSpeedAbs = 0f;
+        }
+
+        pendingVaultExitVelocityX = 0f;
+        hasPendingVaultExitVelocityRestore = false;
         LastVaultFinishedTime = Time.time;
     }
 

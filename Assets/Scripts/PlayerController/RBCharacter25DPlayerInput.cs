@@ -18,6 +18,7 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
 
     [SerializeField] private string moveActionName = "Move";
     [SerializeField] private string jumpActionName = "Jump";
+    [SerializeField] private string lockStanceActionName = "LockStance";
 
     [Header("Move")]
     [Tooltip("Если включено, X будет приводиться к -1 / 0 / 1. Удобно для платформера.")]
@@ -29,8 +30,10 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     private InputActionMap resolvedActionMap;
     private InputAction moveAction;
     private InputAction jumpAction;
+    private InputAction lockStanceAction;
 
     public float CurrentMoveX { get; private set; }
+    public bool CurrentLockStanceHeld { get; private set; }
 
     private void Reset()
     {
@@ -70,6 +73,9 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
 
         if (string.IsNullOrWhiteSpace(jumpActionName))
             jumpActionName = "Jump";
+
+        if (string.IsNullOrWhiteSpace(lockStanceActionName))
+            lockStanceActionName = "LockStance";
     }
 
     private void OnEnable()
@@ -82,9 +88,13 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     {
         UnsubscribeJumpCallbacks();
         CurrentMoveX = 0f;
+        CurrentLockStanceHeld = false;
 
         if (character != null)
+        {
+            character.SetLockStanceHeld(false);
             character.ClearExternalInputState();
+        }
     }
 
     private void Update()
@@ -92,13 +102,17 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
         ResolveActions(forceResubscribe: false);
 
         float moveX = ReadMoveX();
+        bool lockStanceHeld = ReadLockStanceHeld();
+
         CurrentMoveX = moveX;
+        CurrentLockStanceHeld = lockStanceHeld;
 
         if (character == null)
             return;
 
         character.SetMoveInput(moveX);
         character.SetJumpHeld(ReadJumpHeld());
+        character.SetLockStanceHeld(lockStanceHeld);
     }
 
     private void ResolveActions(bool forceResubscribe)
@@ -123,6 +137,7 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
         resolvedActionMap = targetMap;
         moveAction = resolvedActionMap != null ? resolvedActionMap.FindAction(moveActionName, false) : null;
         jumpAction = resolvedActionMap != null ? resolvedActionMap.FindAction(jumpActionName, false) : null;
+        lockStanceAction = resolvedActionMap != null ? resolvedActionMap.FindAction(lockStanceActionName, false) : null;
 
         SubscribeJumpCallbacks();
     }
@@ -151,13 +166,17 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     private void SyncImmediateState()
     {
         float moveX = ReadMoveX();
+        bool lockStanceHeld = ReadLockStanceHeld();
+
         CurrentMoveX = moveX;
+        CurrentLockStanceHeld = lockStanceHeld;
 
         if (character == null)
             return;
 
         character.SetMoveInput(moveX);
         character.SetJumpHeld(ReadJumpHeld());
+        character.SetLockStanceHeld(lockStanceHeld);
     }
 
     private void OnJumpStarted(InputAction.CallbackContext context)
@@ -204,4 +223,10 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     {
         return jumpAction != null && jumpAction.enabled && jumpAction.IsPressed();
     }
+
+    private bool ReadLockStanceHeld()
+    {
+        return lockStanceAction != null && lockStanceAction.enabled && lockStanceAction.IsPressed();
+    }
 }
+

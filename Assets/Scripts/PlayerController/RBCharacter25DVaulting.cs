@@ -303,8 +303,8 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         previousIsKinematic = rb.isKinematic;
         previousColliderEnabled = col != null && col.enabled;
 
-        if (!rb.isKinematic)
-            rb.linearVelocity = Vector3.zero;
+        float preVaultVelocityX = rb.linearVelocity.x;
+        controller.NotifyVaultStarted(preVaultVelocityX);
 
         rb.useGravity = false;
         rb.isKinematic = true;
@@ -315,8 +315,6 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         SetVaultCollisionIgnore(candidate.TopHit.collider, true, ref ignoredVaultColliderA);
         if (candidate.FrontHit.collider != null && candidate.FrontHit.collider != candidate.TopHit.collider)
             SetVaultCollisionIgnore(candidate.FrontHit.collider, true, ref ignoredVaultColliderB);
-
-        controller.NotifyVaultStarted();
     }
 
     private void FinishVault()
@@ -328,8 +326,6 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         rb.position = finalPosition;
         rb.useGravity = previousUseGravity;
         rb.isKinematic = previousIsKinematic;
-        if (!rb.isKinematic)
-            rb.linearVelocity = Vector3.zero;
 
         if (col != null)
             col.enabled = previousColliderEnabled;
@@ -593,11 +589,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             return supportCenter;
 
         float desired = nearEdgeX + directionSign * (bodyHalfWidth + landingForwardOffset);
-        desired = Mathf.Clamp(desired, minSupportX, maxSupportX);
-
-        // На узких платформах не уезжать слишком далеко от центра.
-        float centered = Mathf.Lerp(supportCenter, desired, 0.65f);
-        return Mathf.Clamp(centered, minSupportX, maxSupportX);
+        return Mathf.Clamp(desired, minSupportX, maxSupportX);
     }
 
     private float ComputeUnderCatchTargetSurfaceX(float nearEdgeX, float farEdgeX, int directionSign, float startBodyCenterX)
@@ -610,9 +602,8 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         if (minSupportX > maxSupportX)
             return supportCenter;
 
-        float desired = Mathf.Clamp(startBodyCenterX + directionSign * underPlatformHorizontalInset, minSupportX, maxSupportX);
-        float blendToCenter = Mathf.Lerp(desired, supportCenter, 0.25f);
-        return Mathf.Clamp(blendToCenter, minSupportX, maxSupportX);
+        float desired = nearEdgeX + directionSign * (bodyHalfWidth + underPlatformHorizontalInset);
+        return Mathf.Clamp(desired, minSupportX, maxSupportX);
     }
 
     private bool TryResolveTopSurfaceForRegular(
