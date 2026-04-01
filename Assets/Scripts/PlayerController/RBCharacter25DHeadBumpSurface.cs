@@ -32,6 +32,11 @@ public sealed class RBCharacter25DHeadBumpSurface : MonoBehaviour
         if (targetCollider == null)
             return false;
 
+        // One-way platforms are valid support surfaces from above,
+        // but they must never behave like a ceiling/head-bump surface.
+        if (targetCollider.GetComponentInParent<OneWayBoxPlatform>() != null)
+            return false;
+
         RBCharacter25DHeadBumpSurface surface =
             targetCollider.GetComponentInParent<RBCharacter25DHeadBumpSurface>();
 

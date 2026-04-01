@@ -1,5 +1,12 @@
 using UnityEngine;
 
+public enum SurfaceSensorQuery25D
+{
+    Support = 0,
+    GroundSurface = 1,
+    Wall = 2,
+}
+
 [System.Serializable]
 public sealed class RBCharacter25DSurfaceSensor
 {
@@ -23,11 +30,17 @@ public sealed class RBCharacter25DSurfaceSensor
     private float slopeMinAngle;
     private bool lockZ;
     private float lockedZ;
+    private OneWayPlatformController oneWayController;
 
     public void Initialize(Rigidbody rigidbody, CapsuleCollider capsuleCollider)
     {
         rb = rigidbody;
         col = capsuleCollider;
+    }
+
+    public void SetOneWayController(OneWayPlatformController controller)
+    {
+        oneWayController = controller;
     }
 
     public void SyncSettings(
@@ -141,15 +154,15 @@ public sealed class RBCharacter25DSurfaceSensor
 
     private bool TryGetSupportHit(out RaycastHit bestHit)
     {
-        return TryGetGroundHitInternal(0.005f, groundProbeDistance + 0.005f, out bestHit);
+        return TryGetGroundHitInternal(0.005f, groundProbeDistance + 0.005f, SurfaceSensorQuery25D.Support, out bestHit);
     }
 
     private bool TryGetGroundSurfaceHit(out RaycastHit bestHit)
     {
-        return TryGetGroundHitInternal(groundProbeStartOffset, groundProbeDistance + groundProbeStartOffset, out bestHit);
+        return TryGetGroundHitInternal(groundProbeStartOffset, groundProbeDistance + groundProbeStartOffset, SurfaceSensorQuery25D.GroundSurface, out bestHit);
     }
 
-    private bool TryGetGroundHitInternal(float startOffset, float castDistance, out RaycastHit bestHit)
+    private bool TryGetGroundHitInternal(float startOffset, float castDistance, SurfaceSensorQuery25D queryType, out RaycastHit bestHit)
     {
         bestHit = default;
 
@@ -185,6 +198,8 @@ public sealed class RBCharacter25DSurfaceSensor
             if (hit.collider == null)
                 continue;
             if (hit.collider.attachedRigidbody == rb)
+                continue;
+            if (!ShouldAcceptHit(hit, queryType))
                 continue;
             if (hit.normal.y <= 0.05f)
                 continue;
@@ -229,6 +244,8 @@ public sealed class RBCharacter25DSurfaceSensor
                 continue;
             if (hit.collider.attachedRigidbody == rb)
                 continue;
+            if (!ShouldAcceptHit(hit, SurfaceSensorQuery25D.Wall))
+                continue;
             if (Vector3.Dot(hit.normal, direction) >= -0.1f)
                 continue;
             if (!IsWallNormal(hit.normal))
@@ -243,6 +260,17 @@ public sealed class RBCharacter25DSurfaceSensor
         }
 
         return found;
+    }
+
+    private bool ShouldAcceptHit(RaycastHit hit, SurfaceSensorQuery25D queryType)
+    {
+        if (hit.collider == null)
+            return false;
+
+        if (oneWayController == null)
+            return true;
+
+        return oneWayController.ShouldAcceptSensorHit(hit, queryType);
     }
 
     private void FillSlopeData(ref SurfaceContacts25D contacts)

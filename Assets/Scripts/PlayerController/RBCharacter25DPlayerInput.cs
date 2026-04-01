@@ -33,6 +33,7 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     private InputAction lockStanceAction;
 
     public float CurrentMoveX { get; private set; }
+    public float CurrentMoveY { get; private set; }
     public bool CurrentLockStanceHeld { get; private set; }
 
     private void Reset()
@@ -88,6 +89,7 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     {
         UnsubscribeJumpCallbacks();
         CurrentMoveX = 0f;
+        CurrentMoveY = 0f;
         CurrentLockStanceHeld = false;
 
         if (character != null)
@@ -101,16 +103,19 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     {
         ResolveActions(forceResubscribe: false);
 
-        float moveX = ReadMoveX();
+        Vector2 move = ReadMoveVector();
+        float moveX = ResolveMoveX(move);
+        float moveY = ResolveMoveY(move);
         bool lockStanceHeld = ReadLockStanceHeld();
 
         CurrentMoveX = moveX;
+        CurrentMoveY = moveY;
         CurrentLockStanceHeld = lockStanceHeld;
 
         if (character == null)
             return;
 
-        character.SetMoveInput(moveX);
+        character.SetMoveInput(moveX, moveY);
         character.SetJumpHeld(ReadJumpHeld());
         character.SetLockStanceHeld(lockStanceHeld);
     }
@@ -165,16 +170,19 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
 
     private void SyncImmediateState()
     {
-        float moveX = ReadMoveX();
+        Vector2 move = ReadMoveVector();
+        float moveX = ResolveMoveX(move);
+        float moveY = ResolveMoveY(move);
         bool lockStanceHeld = ReadLockStanceHeld();
 
         CurrentMoveX = moveX;
+        CurrentMoveY = moveY;
         CurrentLockStanceHeld = lockStanceHeld;
 
         if (character == null)
             return;
 
-        character.SetMoveInput(moveX);
+        character.SetMoveInput(moveX, moveY);
         character.SetJumpHeld(ReadJumpHeld());
         character.SetLockStanceHeld(lockStanceHeld);
     }
@@ -197,12 +205,16 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
         character.QueueJumpReleased();
     }
 
-    private float ReadMoveX()
+    private Vector2 ReadMoveVector()
     {
         if (moveAction == null || !moveAction.enabled)
-            return 0f;
+            return Vector2.zero;
 
-        Vector2 move = moveAction.ReadValue<Vector2>();
+        return moveAction.ReadValue<Vector2>();
+    }
+
+    private float ResolveMoveX(Vector2 move)
+    {
         float x = Mathf.Clamp(move.x, -1f, 1f);
 
         if (snapMoveToDigital)
@@ -217,6 +229,11 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
             return 0f;
 
         return x;
+    }
+
+    private static float ResolveMoveY(Vector2 move)
+    {
+        return Mathf.Clamp(move.y, -1f, 1f);
     }
 
     private bool ReadJumpHeld()

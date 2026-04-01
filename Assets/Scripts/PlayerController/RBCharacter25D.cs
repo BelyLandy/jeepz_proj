@@ -87,6 +87,9 @@ public sealed class RBCharacter25D : MonoBehaviour
     [Tooltip("Как часто писать лог разгона.")]
     [SerializeField] private float debugLogInterval = 0.1f;
 
+    [Tooltip("Писать ли в консоль сообщения о выполнении Single Jump и Double Jump.")]
+    [SerializeField] private bool debugJumpMessages = false;
+
     [Header("Jump")]
     [Tooltip("Импульс прыжка (будет перезаписан авто-настройкой, если autoTuneJump=true).")]
     [SerializeField] private float jumpImpulse = 18.75733f;
@@ -122,6 +125,22 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     [Tooltip("Разрешать ли прыжок, пока LockStance уже вошел в активный режим.")]
     [SerializeField] private bool allowJumpWhileLockStance = true;
+
+    [Header("One Way Drop Down")]
+    [Tooltip("Разрешить спрыгивание вниз через текущую one-way платформу по команде Down + Jump.")]
+    [SerializeField] private bool enableOneWayDropDown = true;
+
+    [Tooltip("Насколько сильно нужно нажать вниз по Y у Move input, чтобы считалось drop-down намерением.")]
+    [SerializeField, Range(0f, 1f)] private float oneWayDropDownInputThreshold = 0.5f;
+
+    [Tooltip("Минимальная длительность ignore для текущей support one-way платформы при drop-down.")]
+    [SerializeField] private float oneWayDropDownDuration = 0.18f;
+
+    [Tooltip("Минимальная вертикальная скорость вниз, которую мы задаём в момент старта drop-down, чтобы герой сразу сошёл с платформы.")]
+    [SerializeField] private float oneWayDropDownDownwardSpeed = 2.5f;
+
+    [Tooltip("Если включено, то после drop-down через one-way платформу обычный первый прыжок блокируется, и остаётся только double jump.")]
+    [SerializeField] private bool onlyDoubleJumpAfterOneWayDropDown = true;
 
     [Header("Wall Stop")]
     [Tooltip("Дистанция проверки стены в сторону движения (world units).")]
@@ -209,6 +228,7 @@ public sealed class RBCharacter25D : MonoBehaviour
     private CapsuleCollider col;
     private RBCharacter25DVaulting vaulting;
     private RBCharacter25DSurfaceSensor surfaceSensor;
+    private OneWayPlatformController oneWayPlatformController;
 
     private FrameInput25D currentInput;
     private SurfaceContacts25D lastContacts;
@@ -216,6 +236,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private float inputX;
     private float externalMoveX;
+    private float externalMoveY;
     private bool externalJumpHeld;
     private bool externalLockStanceHeld;
     private bool lockStanceLatched;
@@ -256,10 +277,12 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     public Rigidbody RigidbodyComponent => rb;
     public CapsuleCollider CapsuleColliderComponent => col;
+    public SurfaceContacts25D LastSurfaceContacts => lastContacts;
     public LayerMask GroundMask => groundMask;
     public bool UsesLockedZ => lockZ;
     public float LockedZPosition => lockedZ;
     public int VaultFacingSignFromInput => lastNonZeroInputX < 0f ? -1 : 1;
+    public float MoveInputY => externalMoveY;
 
     private void Awake()
     {
@@ -312,6 +335,12 @@ public sealed class RBCharacter25D : MonoBehaviour
         enableLockStance = true;
         queueLockStanceIfPressedInAir = true;
         allowJumpWhileLockStance = true;
+
+        enableOneWayDropDown = true;
+        oneWayDropDownInputThreshold = 0.5f;
+        oneWayDropDownDuration = 0.18f;
+        oneWayDropDownDownwardSpeed = 2.5f;
+        onlyDoubleJumpAfterOneWayDropDown = true;
 
         preserveHorizontalSpeedAfterVault = true;
         vaultExitHorizontalSpeedMultiplier = 0.9f;
@@ -388,6 +417,7 @@ public sealed class RBCharacter25D : MonoBehaviour
             state.IsDoubleJumpSpeedBoostActive = false;
 
         currentInput.RawX = inputX;
+        currentInput.RawY = externalMoveY;
         currentInput.JumpHeld = externalJumpHeld && (!IsLockStanceMovementActive || allowJumpWhileLockStance);
         currentInput.JumpPressed = false;
         currentInput.JumpReleased = false;
@@ -396,6 +426,13 @@ public sealed class RBCharacter25D : MonoBehaviour
         lastContacts = GatherSurfaceContacts();
         UpdateGroundedState(lastContacts, out bool justLandedThisFixed, out bool leftGroundThisFixed);
         ResolveLockStanceState();
+
+        bool startedOneWayDropDown = TryStartOneWayDropDown(ref lastContacts);
+        if (startedOneWayDropDown)
+        {
+            justLandedThisFixed = false;
+            leftGroundThisFixed = true;
+        }
 
         if (leftGroundThisFixed)
         {
@@ -406,7 +443,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (!state.IsGrounded && Mathf.Abs(inputX) > InputEpsilon)
             state.PendingSlopeStickAfterJump = false;
 
-        if (!IsLockStanceGroundActive && vaulting != null && vaulting.TryStartVault())
+        if (!startedOneWayDropDown && !IsLockStanceGroundActive && vaulting != null && vaulting.TryStartVault())
         {
             currentHorizontalSpeedAbs = 0f;
             state.WasGroundedLastFixed = false;
@@ -452,6 +489,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (col == null) col = GetComponent<CapsuleCollider>();
         if (vaulting == null) vaulting = GetComponent<RBCharacter25DVaulting>();
+        if (oneWayPlatformController == null) oneWayPlatformController = GetComponent<OneWayPlatformController>();
     }
 
     private void EnsureSurfaceSensor()
@@ -460,6 +498,7 @@ public sealed class RBCharacter25D : MonoBehaviour
             surfaceSensor = new RBCharacter25DSurfaceSensor();
 
         surfaceSensor.Initialize(rb, col);
+        surfaceSensor.SetOneWayController(oneWayPlatformController);
         SyncSurfaceSensor();
     }
 
@@ -579,6 +618,10 @@ public sealed class RBCharacter25D : MonoBehaviour
         groundProbeStartOffset = Mathf.Max(0f, groundProbeStartOffset);
         groundProbeInset = Mathf.Max(0f, groundProbeInset);
 
+        oneWayDropDownInputThreshold = Mathf.Clamp01(oneWayDropDownInputThreshold);
+        oneWayDropDownDuration = Mathf.Max(0.01f, oneWayDropDownDuration);
+        oneWayDropDownDownwardSpeed = Mathf.Max(0f, oneWayDropDownDownwardSpeed);
+
         pixelsPerUnit = Mathf.Max(0.0001f, pixelsPerUnit);
         jumpHeightPixels = Mathf.Max(0f, jumpHeightPixels);
         timeToApex = Mathf.Max(0.0001f, timeToApex);
@@ -614,6 +657,73 @@ public sealed class RBCharacter25D : MonoBehaviour
         externalJumpPressedQueued = false;
     }
 
+    private bool TryStartOneWayDropDown(ref SurfaceContacts25D contacts)
+    {
+        if (!enableOneWayDropDown || oneWayPlatformController == null)
+            return false;
+
+        bool jumpBuffered = (Time.time - state.LastJumpPressedTime) <= jumpBuffer;
+        if (IsVaultingNow || !jumpBuffered)
+            return false;
+
+        if (!state.IsGrounded || !contacts.HasSupport || contacts.SupportHit.collider == null)
+            return false;
+
+        if (externalMoveY > -oneWayDropDownInputThreshold)
+            return false;
+
+        OneWayBoxPlatform supportPlatform = OneWayPlatformUtility.ResolvePlatform(contacts.SupportHit.collider);
+        if (supportPlatform == null || supportPlatform.PlatformCollider == null)
+            return false;
+
+        if (!oneWayPlatformController.TryStartDropDown(supportPlatform, oneWayDropDownDuration))
+            return false;
+
+        currentInput.JumpPressed = false;
+        currentInput.JumpHeld = false;
+        state.LastJumpPressedTime = InvalidPastTime;
+        state.IsGrounded = false;
+        state.WasGroundedLastFixed = false;
+        state.PendingSlopeStickAfterJump = false;
+        state.SlopeLockUntilTime = InvalidPastTime;
+
+        if (onlyDoubleJumpAfterOneWayDropDown)
+        {
+            state.LastGroundedTime = InvalidPastTime;
+            state.JumpBlockedUntilTime = InvalidPastTime;
+
+            if (enableDoubleJump)
+            {
+                state.JumpsRemaining = 1;
+                state.UsedDoubleJumpSinceLastGrounded = false;
+                state.IsDoubleJumpSpeedBoostActive = false;
+            }
+            else
+            {
+                state.JumpsRemaining = 0;
+            }
+        }
+
+        UpdateSlopeXConstraint(false);
+
+        contacts.IsGrounded = false;
+        contacts.HasSupport = false;
+        contacts.HasGroundSurface = false;
+        contacts.OnSlope = false;
+        contacts.GroundNormal = Vector3.up;
+        contacts.SupportHit = default;
+        contacts.GroundHit = default;
+
+        if (rb != null && !rb.isKinematic)
+        {
+            Vector3 velocity = rb.linearVelocity;
+            velocity.y = Mathf.Min(velocity.y, -oneWayDropDownDownwardSpeed);
+            rb.linearVelocity = velocity;
+        }
+
+        return true;
+    }
+
     private void HandleJumpReleaseCut()
     {
         if (IsVaultingNow)
@@ -640,7 +750,13 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     public void SetMoveInput(float x)
     {
+        SetMoveInput(x, externalMoveY);
+    }
+
+    public void SetMoveInput(float x, float y)
+    {
         externalMoveX = Mathf.Clamp(x, -1f, 1f);
+        externalMoveY = Mathf.Clamp(y, -1f, 1f);
     }
 
     public void SetJumpHeld(bool held)
@@ -672,7 +788,10 @@ public sealed class RBCharacter25D : MonoBehaviour
     public void ClearExternalInputState(bool clearMove = true)
     {
         if (clearMove)
+        {
             externalMoveX = 0f;
+            externalMoveY = 0f;
+        }
 
         externalJumpHeld = false;
         externalJumpPressedQueued = false;
@@ -1130,6 +1249,15 @@ public sealed class RBCharacter25D : MonoBehaviour
         state.JumpsRemaining = Mathf.Max(0, state.JumpsRemaining - 1);
         state.LastJumpPressedTime = InvalidPastTime;
         state.LastJumpExecutedTime = Time.time;
+
+        if (debugJumpMessages)
+        {
+            if (isDoubleJump)
+                Debug.Log($"[RBCharacter25D] Double Jump executed by {name}", this);
+            else
+                Debug.Log($"[RBCharacter25D] Single Jump executed by {name}", this);
+        }
+
         RecordSelfJump(isDoubleJump ? SelfJumpKind.DoubleJump : SelfJumpKind.SingleJump);
         return true;
     }
@@ -1614,6 +1742,35 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         lastDebugLogTime = Time.time;
 
+        string supportName = contacts.SupportHit.collider != null ? contacts.SupportHit.collider.name : "null";
+        string leftWallName = contacts.LeftWallHit.collider != null ? contacts.LeftWallHit.collider.name : "null";
+        string rightWallName = contacts.RightWallHit.collider != null ? contacts.RightWallHit.collider.name : "null";
+
+        OneWayPlatformRuntimePhase supportPhase = OneWayPlatformRuntimePhase.Unknown;
+        OneWayPlatformRuntimePhase leftWallPhase = OneWayPlatformRuntimePhase.Unknown;
+        OneWayPlatformRuntimePhase rightWallPhase = OneWayPlatformRuntimePhase.Unknown;
+
+        if (oneWayPlatformController != null)
+        {
+            OneWayBoxPlatform supportPlatform = contacts.SupportHit.collider != null
+                ? OneWayPlatformUtility.ResolvePlatform(contacts.SupportHit.collider)
+                : null;
+            if (supportPlatform != null)
+                oneWayPlatformController.TryGetPlatformPhase(supportPlatform, out supportPhase);
+
+            OneWayBoxPlatform leftWallPlatform = contacts.LeftWallHit.collider != null
+                ? OneWayPlatformUtility.ResolvePlatform(contacts.LeftWallHit.collider)
+                : null;
+            if (leftWallPlatform != null)
+                oneWayPlatformController.TryGetPlatformPhase(leftWallPlatform, out leftWallPhase);
+
+            OneWayBoxPlatform rightWallPlatform = contacts.RightWallHit.collider != null
+                ? OneWayPlatformUtility.ResolvePlatform(contacts.RightWallHit.collider)
+                : null;
+            if (rightWallPlatform != null)
+                oneWayPlatformController.TryGetPlatformPhase(rightWallPlatform, out rightWallPhase);
+        }
+
         Debug.Log(
             $"[RBCharacter25D] " +
             $"rawInput={inputX:0.00} " +
@@ -1636,7 +1793,14 @@ public sealed class RBCharacter25D : MonoBehaviour
             $"downhillSigned={downhillSignedSpeed:0.00} " +
             $"xLocked={slopeXLocked} " +
             $"blockedL={blockedLeft} " +
-            $"blockedR={blockedRight}",
+            $"blockedR={blockedRight} " +
+            $"lockStance={IsLockStanceMovementActive} " +
+            $"support={supportName} " +
+            $"supportPhase={supportPhase} " +
+            $"leftWall={leftWallName} " +
+            $"leftWallPhase={leftWallPhase} " +
+            $"rightWall={rightWallName} " +
+            $"rightWallPhase={rightWallPhase}",
             this);
     }
 

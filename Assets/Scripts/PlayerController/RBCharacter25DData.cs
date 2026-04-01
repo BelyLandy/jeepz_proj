@@ -3,6 +3,7 @@ using UnityEngine;
 public struct FrameInput25D
 {
     public float RawX;
+    public float RawY;
     public float SmoothedX;
     public bool JumpPressed;
     public bool JumpHeld;

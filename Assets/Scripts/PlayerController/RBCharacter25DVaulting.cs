@@ -2,6 +2,7 @@ using UnityEngine;
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(RBCharacter25D), typeof(Rigidbody), typeof(CapsuleCollider))]
+[RequireComponent(typeof(CollisionIgnoreCoordinator))]
 public sealed class RBCharacter25DVaulting : MonoBehaviour
 {
     private const float InvalidPastTime = -999f;
@@ -50,6 +51,8 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
     [SerializeField] private bool allowVaultFromGround = true;
     [SerializeField] private bool allowVaultWhileFalling = true;
     [SerializeField] private bool onlyBoxColliders = true;
+    [SerializeField] private LayerMask onlyVaultMask_r;
+    [SerializeField] private LayerMask onlyVaultMask_l;
     [SerializeField] private float vaultCooldown = 0.08f;
 
     [Header("Vault Height")]
@@ -117,6 +120,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
     private RBCharacter25D controller;
     private Rigidbody rb;
     private CapsuleCollider col;
+    private CollisionIgnoreCoordinator ignoreCoordinator;
 
     private readonly RaycastHit[] castHits = new RaycastHit[24];
     private readonly Collider[] overlapHits = new Collider[24];
@@ -169,6 +173,8 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         allowVaultFromGround = true;
         allowVaultWhileFalling = true;
         onlyBoxColliders = true;
+        onlyVaultMask_r = 0;
+        onlyVaultMask_l = 0;
         vaultCooldown = 0.08f;
 
         minVaultHeight = 0.35f;
@@ -370,7 +376,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             Vector3 origin = GetFrontProbeOrigin(bounds, directionSign, probeHeight, frontProbeRadius);
             float castDistance = maxStartDistance + ledgeForwardProbeOffset + frontProbeRadius + Skin;
 
-            if (!TrySphereCastClosest(origin, frontProbeRadius, forward, castDistance, out RaycastHit frontHit))
+            if (!TrySphereCastClosest(origin, frontProbeRadius, forward, castDistance, directionSign, out RaycastHit frontHit))
                 continue;
 
             if (!IsValidFrontWall(frontHit, forward))
@@ -387,7 +393,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
                 continue;
 
             Vector3 targetBodyCenter = BuildRegularTargetBodyCenter(bounds, bodyCenterOffsetFromRb, directionSign, topHit, nearEdgeX, farEdgeX);
-            bool canOccupy = CanOccupyTarget(targetBodyCenter, bounds, topHit.collider, nearEdgeX, farEdgeX);
+            bool canOccupy = CanOccupyTarget(targetBodyCenter, bounds, topHit.collider, nearEdgeX, farEdgeX, directionSign);
             if (!canOccupy)
                 continue;
 
@@ -451,7 +457,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             boxHalfExtents,
             boxOverlapHits,
             Quaternion.identity,
-            controller.GroundMask,
+            GetVaultQueryMask(directionSign),
             QueryTriggerInteraction.Ignore);
 
         if (count <= 0)
@@ -501,7 +507,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
                 continue;
 
             Vector3 targetBodyCenter = BuildUnderCatchTargetBodyCenter(bounds, bodyCenterOffsetFromRb, directionSign, topHit, resolvedNearEdgeX, resolvedFarEdgeX);
-            bool canOccupy = CanOccupyTarget(targetBodyCenter, bounds, topHit.collider, resolvedNearEdgeX, resolvedFarEdgeX);
+            bool canOccupy = CanOccupyTarget(targetBodyCenter, bounds, topHit.collider, resolvedNearEdgeX, resolvedFarEdgeX, directionSign);
             if (!canOccupy)
                 continue;
 
@@ -656,7 +662,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
                 x = Mathf.Lerp(colliderBounds.max.x - suspendedCheckInset, colliderBounds.min.x + suspendedCheckInset, t);
 
             Vector3 origin = new Vector3(x, startY, z);
-            if (!TrySphereCastClosest(origin, topProbeRadius, Vector3.down, distance, out RaycastHit hit))
+            if (!TrySphereCastClosest(origin, topProbeRadius, Vector3.down, distance, directionSign, out RaycastHit hit))
                 continue;
             if (hit.collider != targetCollider)
                 continue;
@@ -678,11 +684,11 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         return found;
     }
 
-    private bool CanOccupyTarget(Vector3 targetBodyCenter, Bounds currentBounds, Collider supportCollider, float nearEdgeX, float farEdgeX)
+    private bool CanOccupyTarget(Vector3 targetBodyCenter, Bounds currentBounds, Collider supportCollider, float nearEdgeX, float farEdgeX, int directionSign)
     {
         bool insideSupportBounds = IsSupportedByTopSurfaceBounds(targetBodyCenter, currentBounds, nearEdgeX, farEdgeX);
-        bool hasSupportCast = HasSupportBelowTarget(targetBodyCenter, currentBounds, supportCollider);
-        bool canOccupy = CanOccupyBodyCenter(targetBodyCenter, currentBounds, supportCollider);
+        bool hasSupportCast = HasSupportBelowTarget(targetBodyCenter, currentBounds, supportCollider, directionSign);
+        bool canOccupy = CanOccupyBodyCenter(targetBodyCenter, currentBounds, supportCollider, directionSign);
         debugState.TargetIsFree = canOccupy && (insideSupportBounds || hasSupportCast);
         return debugState.TargetIsFree;
     }
@@ -703,7 +709,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         return bodyCenter.x >= minX - Skin && bodyCenter.x <= maxX + Skin;
     }
 
-    private bool CanOccupyBodyCenter(Vector3 bodyCenter, Bounds currentBounds, Collider supportCollider)
+    private bool CanOccupyBodyCenter(Vector3 bodyCenter, Bounds currentBounds, Collider supportCollider, int directionSign)
     {
         float radius = Mathf.Max(0.02f, Mathf.Min(currentBounds.extents.x, currentBounds.extents.z) - capsuleCheckShrink);
         float halfHeight = Mathf.Max(radius, currentBounds.extents.y - capsuleCheckShrink);
@@ -718,7 +724,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             bottom,
             radius,
             overlapHits,
-            controller.GroundMask,
+            GetVaultQueryMask(directionSign),
             QueryTriggerInteraction.Ignore);
 
         for (int i = 0; i < hitCount; i++)
@@ -736,7 +742,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         return true;
     }
 
-    private bool HasSupportBelowTarget(Vector3 bodyCenter, Bounds currentBounds, Collider expectedCollider)
+    private bool HasSupportBelowTarget(Vector3 bodyCenter, Bounds currentBounds, Collider expectedCollider, int directionSign)
     {
         float supportStartHeight = currentBounds.extents.y + landingUpOffset + 0.12f;
         float supportDistance = supportStartHeight + 0.65f;
@@ -752,7 +758,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
 
         for (int i = 0; i < origins.Length; i++)
         {
-            if (!TrySphereCastClosest(origins[i], radius, Vector3.down, supportDistance, out RaycastHit supportHit))
+            if (!TrySphereCastClosest(origins[i], radius, Vector3.down, supportDistance, directionSign, out RaycastHit supportHit))
                 continue;
             if (supportHit.collider == null)
                 continue;
@@ -788,7 +794,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             : platformBounds.max.x - Mathf.Max(0.005f, suspendedCheckInset);
 
         Vector3 origin = new Vector3(sampleX, platformBounds.min.y - Skin, z);
-        return Physics.Raycast(origin, Vector3.down, suspendedCheckDepth, controller.GroundMask, QueryTriggerInteraction.Ignore);
+        return Physics.Raycast(origin, Vector3.down, suspendedCheckDepth, GetVaultQueryMask(directionSign), QueryTriggerInteraction.Ignore);
     }
 
     private bool HasUnderCatchSampleHit(Bounds bodyBounds, int directionSign, Collider expectedCollider)
@@ -802,7 +808,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             float t = sampleCount == 1 ? 0f : i / (float)(sampleCount - 1);
             float probeHeight = Mathf.Lerp(underCatchBottom, underCatchTop, t);
             Vector3 origin = GetFrontProbeOrigin(bodyBounds, directionSign, probeHeight, frontProbeRadius);
-            if (!TrySphereCastClosest(origin, frontProbeRadius, forward, castDistance, out RaycastHit hit))
+            if (!TrySphereCastClosest(origin, frontProbeRadius, forward, castDistance, directionSign, out RaycastHit hit))
                 continue;
             if (hit.collider == expectedCollider)
                 return true;
@@ -844,7 +850,14 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         return controller != null && controller.UsesLockedZ ? controller.LockedZPosition : bounds.center.z;
     }
 
-    private bool TrySphereCastClosest(Vector3 origin, float radius, Vector3 direction, float distance, out RaycastHit bestHit)
+    private LayerMask GetVaultQueryMask(int directionSign)
+    {
+        LayerMask baseMask = controller != null ? controller.GroundMask : 0;
+        LayerMask directionalVaultMask = directionSign < 0 ? onlyVaultMask_r : onlyVaultMask_l;
+        return baseMask | directionalVaultMask;
+    }
+
+    private bool TrySphereCastClosest(Vector3 origin, float radius, Vector3 direction, float distance, int directionSign, out RaycastHit bestHit)
     {
         bestHit = default;
 
@@ -854,7 +867,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             direction,
             castHits,
             distance,
-            controller.GroundMask,
+            GetVaultQueryMask(directionSign),
             QueryTriggerInteraction.Ignore);
 
         bool found = false;
@@ -900,29 +913,34 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
 
     private void SetVaultCollisionIgnore(Collider target, bool ignore, ref Collider slot)
     {
-        if (col == null || target == null)
+        if (target == null)
             return;
 
-        Physics.IgnoreCollision(col, target, ignore);
+        if (ignoreCoordinator != null)
+            ignoreCoordinator.SetReason(target, OneWayPassThroughReason.Vault, ignore);
+        else if (col != null)
+            Physics.IgnoreCollision(col, target, ignore);
+
         slot = ignore ? target : null;
     }
 
     private void RestoreVaultCollisionIgnores()
     {
-        if (col == null)
+        RestoreVaultCollisionIgnore(ref ignoredVaultColliderA);
+        RestoreVaultCollisionIgnore(ref ignoredVaultColliderB);
+    }
+
+    private void RestoreVaultCollisionIgnore(ref Collider slot)
+    {
+        if (slot == null)
             return;
 
-        if (ignoredVaultColliderA != null)
-        {
-            Physics.IgnoreCollision(col, ignoredVaultColliderA, false);
-            ignoredVaultColliderA = null;
-        }
+        if (ignoreCoordinator != null)
+            ignoreCoordinator.SetReason(slot, OneWayPassThroughReason.Vault, false);
+        else if (col != null)
+            Physics.IgnoreCollision(col, slot, false);
 
-        if (ignoredVaultColliderB != null)
-        {
-            Physics.IgnoreCollision(col, ignoredVaultColliderB, false);
-            ignoredVaultColliderB = null;
-        }
+        slot = null;
     }
 
     private void RefreshBaseDebugState(int directionSign)
@@ -1097,6 +1115,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         if (controller == null) controller = GetComponent<RBCharacter25D>();
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (col == null) col = GetComponent<CapsuleCollider>();
+        if (ignoreCoordinator == null) ignoreCoordinator = GetComponent<CollisionIgnoreCoordinator>();
     }
 
     private void ClampSettings()

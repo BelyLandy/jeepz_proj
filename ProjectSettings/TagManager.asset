@@ -16,8 +16,8 @@ TagManager:
   - Terrain
   - OneWayPlatform
   - BackgroundParallax
-  - 
-  - 
+  - onlyVaultMask_r
+  - onlyVaultMask_l
   - 
   - 
   - 
