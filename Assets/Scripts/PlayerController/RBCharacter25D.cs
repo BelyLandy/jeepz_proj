@@ -18,6 +18,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         None = 0,
         SingleJump = 1,
         DoubleJump = 2,
+        WallJump = 3,
     }
 
     [Header("2.5D Constraint")]
@@ -56,7 +57,7 @@ public sealed class RBCharacter25D : MonoBehaviour
     [SerializeField] private float inputDeceleration = 12f;
 
     [Header("Slope Handling")]
-    [SerializeField] private bool enableSlopeHandling = true;
+    [SerializeField] private bool enableSlopeHandling = false;
 
     [Tooltip("Начиная с какого угла считать поверхность именно склоном.")]
     [SerializeField, Range(0f, 89f)] private float slopeMinAngle = 1f;
@@ -206,13 +207,13 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     [Header("Ground Probe")]
     [Tooltip("Насколько глубоко вниз ищем землю под капсулой.")]
-    [SerializeField] private float groundProbeDistance = 0.08f;
+    [SerializeField] private float groundProbeDistance = 0.16f;
 
     [Tooltip("Небольшой отступ вверх для старта SphereCast, чтобы избежать дрожания.")]
-    [SerializeField] private float groundProbeStartOffset = 0.02f;
+    [SerializeField] private float groundProbeStartOffset = 0.03f;
 
     [Tooltip("Насколько уменьшаем радиус проверки земли, чтобы не цепляться краями.")]
-    [SerializeField] private float groundProbeInset = 0.05f;
+    [SerializeField] private float groundProbeInset = 0.33f;
 
     [Tooltip("Если при первом касании пола скорость Y ниже этого значения, она обнуляется.")]
     [SerializeField] private float landingClampMinY = 0f;
@@ -1196,7 +1197,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         state.LastJumpPressedTime = InvalidPastTime;
         state.LastJumpExecutedTime = Time.time;
-        RecordSelfJump(SelfJumpKind.SingleJump);
+        RecordSelfJump(SelfJumpKind.WallJump);
         return true;
     }
 

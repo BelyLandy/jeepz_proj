@@ -86,15 +86,6 @@ AnimationClip:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0
-        value: {x: 20.705, y: 40.893, z: 67.792}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0.33333334, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0.33333334, y: 0.33333334, z: 0.33333334}
-      - serializedVersion: 3
         time: 0.5
         value: {x: 20.705, y: 40.893, z: 67.792}
         inSlope: {x: 0, y: 0, z: 0}
@@ -947,15 +938,6 @@ AnimationClip:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0
-        value: 20.705
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      - serializedVersion: 3
         time: 0.5
         value: 20.705
         inSlope: 0
@@ -977,15 +959,6 @@ AnimationClip:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0
-        value: 40.893
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      - serializedVersion: 3
         time: 0.5
         value: 40.893
         inSlope: 0
@@ -1006,15 +979,6 @@ AnimationClip:
     curve:
       serializedVersion: 2
       m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 67.792
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.5
         value: 67.792
@@ -2615,8 +2579,8 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.x
-    path: Hips.Bone/Spine.Bone/Shoulder.L.Bone/Forearm.L.Bone/Elbow.L.Bone
+    attribute: m_LocalEulerAngles.z
+    path: Hips.Bone/Spine.Bone/Shoulder.R.Bone/Forearm.R.Bone/Elbow.R.Bone/Hand.R.Bone/LittleProximal.R.Bone/LittleIntermediate.R.Bone
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2628,7 +2592,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: Hips.Bone/Spine.Bone/Shoulder.L.Bone/Forearm.L.Bone/Elbow.L.Bone
+    path: Hips.Bone/Spine.Bone/Shoulder.R.Bone/Forearm.R.Bone/Elbow.R.Bone/Hand.R.Bone/LittleProximal.R.Bone/LittleIntermediate.R.Bone
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2639,8 +2603,8 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.z
-    path: Hips.Bone/Spine.Bone/Shoulder.L.Bone/Forearm.L.Bone/Elbow.L.Bone
+    attribute: m_LocalEulerAngles.x
+    path: Hips.Bone/Spine.Bone/Shoulder.R.Bone/Forearm.R.Bone/Elbow.R.Bone/Hand.R.Bone/LittleProximal.R.Bone/LittleIntermediate.R.Bone
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3048,7 +3012,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: Hips.Bone/Spine.Bone/Shoulder.R.Bone/Forearm.R.Bone/Elbow.R.Bone/Hand.R.Bone/LittleProximal.R.Bone/LittleIntermediate.R.Bone
+    path: Hips.Bone/Spine.Bone/Shoulder.L.Bone/Forearm.L.Bone/Elbow.L.Bone
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3060,7 +3024,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: Hips.Bone/Spine.Bone/Shoulder.R.Bone/Forearm.R.Bone/Elbow.R.Bone/Hand.R.Bone/LittleProximal.R.Bone/LittleIntermediate.R.Bone
+    path: Hips.Bone/Spine.Bone/Shoulder.L.Bone/Forearm.L.Bone/Elbow.L.Bone
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3072,7 +3036,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: Hips.Bone/Spine.Bone/Shoulder.R.Bone/Forearm.R.Bone/Elbow.R.Bone/Hand.R.Bone/LittleProximal.R.Bone/LittleIntermediate.R.Bone
+    path: Hips.Bone/Spine.Bone/Shoulder.L.Bone/Forearm.L.Bone/Elbow.L.Bone
     classID: 4
     script: {fileID: 0}
     flags: 0

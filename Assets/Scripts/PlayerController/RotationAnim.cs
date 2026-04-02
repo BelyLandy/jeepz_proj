@@ -40,24 +40,26 @@ public class RotationAnim : MonoBehaviour
 
     private void Update()
     {
+        bool forcedWallSlideFacing = TryGetWallSlideFacingSign(out int wallSlideFacingSign);
         bool rotationBlockedByLockStance =
+            !forcedWallSlideFacing &&
             character != null && character.IsLockStanceMovementActive;
 
-        if (!rotationBlockedByLockStance)
+        if (forcedWallSlideFacing)
+        {
+            inputX = 0f;
+            HasMoveInput = false;
+            ApplyFacingSign(wallSlideFacingSign);
+        }
+        else if (!rotationBlockedByLockStance)
         {
             inputX = playerInput != null ? playerInput.CurrentMoveX : 0f;
             HasMoveInput = Mathf.Abs(inputX) > 0.01f;
 
             if (inputX < -0.01f)
-            {
-                FacingSign = -1;
-                desiredRotation = Quaternion.Euler(0f, leftYaw, 0f);
-            }
+                ApplyFacingSign(-1);
             else if (inputX > 0.01f)
-            {
-                FacingSign = +1;
-                desiredRotation = Quaternion.Euler(0f, rightYaw, 0f);
-            }
+                ApplyFacingSign(+1);
         }
         else
         {
@@ -75,5 +77,33 @@ public class RotationAnim : MonoBehaviour
             desiredRotation,
             turnSpeed * Time.deltaTime
         );
+    }
+
+    private void ApplyFacingSign(int sign)
+    {
+        FacingSign = sign >= 0 ? +1 : -1;
+        desiredRotation = Quaternion.Euler(0f, FacingSign >= 0 ? rightYaw : leftYaw, 0f);
+    }
+
+    private bool TryGetWallSlideFacingSign(out int facingSign)
+    {
+        facingSign = +1;
+
+        if (character == null || !character.IsWallSliding)
+            return false;
+
+        if (character.WallSlideSide < 0)
+        {
+            facingSign = +1;
+            return true;
+        }
+
+        if (character.WallSlideSide > 0)
+        {
+            facingSign = -1;
+            return true;
+        }
+
+        return false;
     }
 }
