@@ -27,6 +27,7 @@ public sealed class RBCharacter25DSurfaceSensor
     private float wallMinNormalX;
     private float wallMaxNormalY;
     private bool enableSlopeHandling;
+    private LayerMask slopeLayerMask;
     private float slopeMinAngle;
     private bool lockZ;
     private float lockedZ;
@@ -54,6 +55,7 @@ public sealed class RBCharacter25DSurfaceSensor
         float wallMinNormalX,
         float wallMaxNormalY,
         bool enableSlopeHandling,
+        LayerMask slopeLayerMask,
         float slopeMinAngle,
         bool lockZ,
         float lockedZ)
@@ -68,6 +70,7 @@ public sealed class RBCharacter25DSurfaceSensor
         this.wallMinNormalX = Mathf.Clamp01(wallMinNormalX);
         this.wallMaxNormalY = Mathf.Clamp01(wallMaxNormalY);
         this.enableSlopeHandling = enableSlopeHandling;
+        this.slopeLayerMask = slopeLayerMask;
         this.slopeMinAngle = Mathf.Clamp(slopeMinAngle, 0f, 89f);
         this.lockZ = lockZ;
         this.lockedZ = lockedZ;
@@ -95,6 +98,7 @@ public sealed class RBCharacter25DSurfaceSensor
             contacts.GroundHit = groundHit;
             contacts.GroundNormal = groundHit.normal;
             contacts.IsGrounded = contacts.IsGrounded || groundHit.normal.y > 0.05f;
+            contacts.IsSlopeSurfaceAuthorized = IsSlopeSurfaceAuthorized(groundHit.collider);
             FillSlopeData(ref contacts);
         }
         else if (contacts.HasSupport)
@@ -273,9 +277,17 @@ public sealed class RBCharacter25DSurfaceSensor
         return oneWayController.ShouldAcceptSensorHit(hit, queryType);
     }
 
+    private bool IsSlopeSurfaceAuthorized(Collider collider)
+    {
+        if (collider == null)
+            return false;
+
+        return (slopeLayerMask.value & (1 << collider.gameObject.layer)) != 0;
+    }
+
     private void FillSlopeData(ref SurfaceContacts25D contacts)
     {
-        if (!enableSlopeHandling || !contacts.HasGroundSurface || contacts.GroundHit.collider == null)
+        if (!enableSlopeHandling || !contacts.HasGroundSurface || contacts.GroundHit.collider == null || !contacts.IsSlopeSurfaceAuthorized)
             return;
 
         contacts.SlopeAngle = Vector3.Angle(contacts.GroundHit.normal, Vector3.up);

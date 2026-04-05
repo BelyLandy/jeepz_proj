@@ -10,6 +10,7 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
     [SerializeField] private RBCharacter25D character;
     [SerializeField] private PlayerInput playerInput;
     [SerializeField] private CharacterMoveAimRig25D aimRig;
+    [SerializeField] private PlayerControlLock25D controlLock;
     [SerializeField] private Transform leftFirePivot;
     [SerializeField] private Transform leftFirePoint;
     [SerializeField] private Transform rightFirePivot;
@@ -29,7 +30,7 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
     [SerializeField] private bool forceFirePointsLocalRotationIdentity = true;
 
     [Header("World Z Lock")]
-    [SerializeField] private bool lockFirePivotWorldZ = true;
+    [SerializeField] private bool lockFirePivotWorldZ = false;
     [SerializeField] private float firePivotWorldZ = 0f;
 
     [Header("Attack Rate Limit")]
@@ -94,6 +95,9 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
 
         if (aimRig == null)
             aimRig = GetComponent<CharacterMoveAimRig25D>();
+
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
     }
 
     private void Awake()
@@ -106,6 +110,9 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
 
         if (aimRig == null)
             aimRig = GetComponent<CharacterMoveAimRig25D>();
+
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
 
         ClampSettings();
         SyncAimTransformImmediately();
@@ -123,6 +130,9 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
 
         if (aimRig == null)
             aimRig = GetComponent<CharacterMoveAimRig25D>();
+
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
 
         if (string.IsNullOrWhiteSpace(actionMapName))
             actionMapName = "Player";
@@ -150,12 +160,25 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
     {
         ResolveActions(forceResubscribe: false);
         SyncJumpShootLockState();
+
+        if (controlLock != null && controlLock.IsControlLocked)
+        {
+            hasPendingShot = false;
+            return;
+        }
+
         UpdateAimState();
     }
 
     private void LateUpdate()
     {
         ApplyAllFirePivotWorldTransforms();
+
+        if (controlLock != null && controlLock.IsControlLocked)
+        {
+            hasPendingShot = false;
+            return;
+        }
 
         if (!hasPendingShot)
             return;
@@ -222,6 +245,8 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
     {
         SyncJumpShootLockState();
 
+        if (controlLock != null && controlLock.IsControlLocked)
+            return;
         if (Time.time < nextAllowedShotTime)
             return;
         if (Time.time < shootBlockedUntilTime)

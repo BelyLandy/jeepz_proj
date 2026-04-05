@@ -58,6 +58,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     [Header("Slope Handling")]
     [SerializeField] private bool enableSlopeHandling = false;
+    [SerializeField] private LayerMask slopeLayerMask = 0;
 
     [Tooltip("Начиная с какого угла считать поверхность именно склоном.")]
     [SerializeField, Range(0f, 89f)] private float slopeMinAngle = 1f;
@@ -85,6 +86,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool debugAcceleration = false;
+    [SerializeField] private bool debugSlopeHandlingState = false;
     [Tooltip("Как часто писать лог разгона.")]
     [SerializeField] private float debugLogInterval = 0.1f;
 
@@ -252,6 +254,14 @@ public sealed class RBCharacter25D : MonoBehaviour
     private float lastDebugLogTime = InvalidPastTime;
     private float runtimeGravityScale = 1f;
     private bool slopeXLocked;
+    private bool lastSlopeDebugRuntimeActive;
+    private bool lastSlopeDebugMasterEnabled;
+    private bool lastSlopeDebugAuthorized;
+    private bool lastSlopeDebugGrounded;
+    private int lastSlopeDebugGroundLayer = int.MinValue;
+    private float externalHorizontalLocomotionSuppressUntilTime = InvalidPastTime;
+    private float externalWallSlideSuppressUntilTime = InvalidPastTime;
+    private float externalVaultStartSuppressUntilTime = InvalidPastTime;
 
     public bool IsGroundedNow => state.IsGrounded;
     public bool IsWallSliding => state.IsWallSliding;
@@ -279,6 +289,8 @@ public sealed class RBCharacter25D : MonoBehaviour
     public Rigidbody RigidbodyComponent => rb;
     public CapsuleCollider CapsuleColliderComponent => col;
     public SurfaceContacts25D LastSurfaceContacts => lastContacts;
+    public bool IsSlopeSurfaceAuthorizedNow => lastContacts.HasGroundSurface && lastContacts.IsSlopeSurfaceAuthorized;
+    public bool IsSlopeHandlingRuntimeActiveNow => IsSlopeHandlingRuntimeActive(lastContacts);
     public LayerMask GroundMask => groundMask;
     public bool UsesLockedZ => lockZ;
     public float LockedZPosition => lockedZ;
@@ -312,6 +324,11 @@ public sealed class RBCharacter25D : MonoBehaviour
         inputDeceleration = 12f;
 
         enableSlopeHandling = true;
+
+        int slopeLayer = LayerMask.NameToLayer("Slope");
+        if (slopeLayer >= 0)
+            slopeLayerMask = 1 << slopeLayer;
+
         slopeMinAngle = 1f;
         downhillSlideDeceleration = 30f;
         downhillSlideMinSpeed = 1f;
@@ -428,6 +445,8 @@ public sealed class RBCharacter25D : MonoBehaviour
         UpdateGroundedState(lastContacts, out bool justLandedThisFixed, out bool leftGroundThisFixed);
         ResolveLockStanceState();
 
+        DebugSlopeHandlingState(lastContacts);
+
         bool startedOneWayDropDown = TryStartOneWayDropDown(ref lastContacts);
         if (startedOneWayDropDown)
         {
@@ -444,7 +463,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (!state.IsGrounded && Mathf.Abs(inputX) > InputEpsilon)
             state.PendingSlopeStickAfterJump = false;
 
-        if (!startedOneWayDropDown && !IsLockStanceGroundActive && vaulting != null && vaulting.TryStartVault())
+        if (!startedOneWayDropDown && !IsLockStanceGroundActive && !IsVaultStartSuppressed() && vaulting != null && vaulting.TryStartVault())
         {
             currentHorizontalSpeedAbs = 0f;
             state.WasGroundedLastFixed = false;
@@ -519,6 +538,7 @@ public sealed class RBCharacter25D : MonoBehaviour
             wallMinNormalX,
             wallMaxNormalY,
             enableSlopeHandling,
+            slopeLayerMask,
             slopeMinAngle,
             lockZ,
             lockedZ);
@@ -544,6 +564,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         state.WasGroundedLastFixed = false;
         state.IsWallSliding = false;
         state.WallDetachHoldTimer = 0f;
+        externalHorizontalLocomotionSuppressUntilTime = InvalidPastTime;
         smoothedInputX = 0f;
         currentHorizontalSpeedAbs = 0f;
         pendingVaultExitVelocityX = 0f;
@@ -631,7 +652,8 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void ReadInput()
     {
-        inputX = IsLockStanceMovementActive ? 0f : externalMoveX;
+        bool suppressHorizontalLocomotion = IsHorizontalLocomotionSuppressed();
+        inputX = (IsLockStanceMovementActive || suppressHorizontalLocomotion) ? 0f : externalMoveX;
 
         if (Mathf.Abs(inputX) > InputEpsilon)
             lastNonZeroInputX = Mathf.Sign(inputX);
@@ -802,6 +824,100 @@ public sealed class RBCharacter25D : MonoBehaviour
         lockStanceQueued = false;
     }
 
+
+    public void ClearLocomotionDrive()
+    {
+        inputX = 0f;
+        smoothedInputX = 0f;
+        currentHorizontalSpeedAbs = 0f;
+        state.PendingSlopeStickAfterJump = false;
+        state.SlopeLockUntilTime = InvalidPastTime;
+        UpdateSlopeXConstraint(false);
+    }
+
+    public void SuppressHorizontalLocomotion(float duration, bool clearDrive = true)
+    {
+        if (clearDrive)
+            ClearLocomotionDrive();
+
+        if (duration <= 0f)
+            return;
+
+        externalHorizontalLocomotionSuppressUntilTime = Mathf.Max(
+            externalHorizontalLocomotionSuppressUntilTime,
+            Time.time + duration);
+    }
+
+    public void ClearHorizontalLocomotionSuppression()
+    {
+        externalHorizontalLocomotionSuppressUntilTime = InvalidPastTime;
+    }
+
+    private bool IsHorizontalLocomotionSuppressed()
+    {
+        return Time.time < externalHorizontalLocomotionSuppressUntilTime;
+    }
+
+    public void ResetMotionForExternalHit(bool clearInput = true, bool clearCurrentWallSlide = true)
+    {
+        if (clearInput)
+            ClearExternalInputState(clearMove: true);
+
+        ClearLocomotionDrive();
+        ClearHorizontalLocomotionSuppression();
+
+        if (clearCurrentWallSlide && state.IsWallSliding)
+            ClearWallSlideState();
+
+        state.WallDetachHoldTimer = 0f;
+
+        if (rb != null && !rb.isKinematic)
+            rb.linearVelocity = Vector3.zero;
+    }
+
+    public void SuppressWallSlide(float duration, bool clearCurrentWallSlide = true)
+    {
+        if (clearCurrentWallSlide && state.IsWallSliding)
+            ClearWallSlideState();
+
+        if (duration <= 0f)
+            return;
+
+        externalWallSlideSuppressUntilTime = Mathf.Max(
+            externalWallSlideSuppressUntilTime,
+            Time.time + duration);
+    }
+
+    public void ClearWallSlideSuppression()
+    {
+        externalWallSlideSuppressUntilTime = InvalidPastTime;
+    }
+
+    public void SuppressVaultStart(float duration)
+    {
+        if (duration <= 0f)
+            return;
+
+        externalVaultStartSuppressUntilTime = Mathf.Max(
+            externalVaultStartSuppressUntilTime,
+            Time.time + duration);
+    }
+
+    public void ClearVaultStartSuppression()
+    {
+        externalVaultStartSuppressUntilTime = InvalidPastTime;
+    }
+
+    private bool IsWallSlideSuppressed()
+    {
+        return Time.time < externalWallSlideSuppressUntilTime;
+    }
+
+    private bool IsVaultStartSuppressed()
+    {
+        return Time.time < externalVaultStartSuppressUntilTime;
+    }
+
     private void ResolveLockStanceState()
     {
         bool wasLatched = lockStanceLatched;
@@ -932,7 +1048,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void UpdateSmoothedInput()
     {
-        if (IsLockStanceMovementActive)
+        if (IsLockStanceMovementActive || IsHorizontalLocomotionSuppressed())
         {
             smoothedInputX = 0f;
             return;
@@ -988,24 +1104,37 @@ public sealed class RBCharacter25D : MonoBehaviour
         }
 
         bool noRawInput = Mathf.Abs(input.RawX) <= InputEpsilon;
-        float targetPlanarSpeed = lockStanceMovementActive ? 0f : BuildTargetHorizontalSpeed(input, contacts);
+        bool suppressHorizontalLocomotion = IsHorizontalLocomotionSuppressed();
+        float targetPlanarSpeed = lockStanceMovementActive
+            ? 0f
+            : (suppressHorizontalLocomotion ? currentPlanarSpeed : BuildTargetHorizontalSpeed(input, contacts));
         float downhillSignedSpeed = contacts.OnSlope ? currentPlanarSpeed * contacts.DownhillSign : 0f;
 
-        bool shouldLockSlopeX = ShouldLockSlopeX(contacts, noRawInput, currentPlanarSpeed, downhillSignedSpeed) && !IsJumpBuffered();
+        bool shouldLockSlopeX = !suppressHorizontalLocomotion && ShouldLockSlopeX(contacts, noRawInput, currentPlanarSpeed, downhillSignedSpeed) && !IsJumpBuffered();
         UpdateSlopeXConstraint(shouldLockSlopeX);
 
         float resolvedPlanarSpeed = lockStanceMovementActive
             ? 0f
-            : ResolvePlanarSpeed(
-                targetPlanarSpeed,
-                currentPlanarSpeed,
-                downhillSignedSpeed,
-                noRawInput,
-                contacts.BlockedLeft,
-                contacts.BlockedRight,
-                contacts.OnSlope);
+            : (suppressHorizontalLocomotion
+                ? currentPlanarSpeed
+                : ResolvePlanarSpeed(
+                    targetPlanarSpeed,
+                    currentPlanarSpeed,
+                    downhillSignedSpeed,
+                    noRawInput,
+                    contacts.BlockedLeft,
+                    contacts.BlockedRight,
+                    contacts.OnSlope));
 
-        ApplyHorizontalIntent(ref command, contacts, resolvedPlanarSpeed, shouldLockSlopeX, noRawInput);
+        if (suppressHorizontalLocomotion)
+        {
+            command.TargetVelocity.x = rb.linearVelocity.x;
+            command.OverrideX = true;
+        }
+        else
+        {
+            ApplyHorizontalIntent(ref command, contacts, resolvedPlanarSpeed, shouldLockSlopeX, noRawInput);
+        }
 
         bool blockJumpByLockStance = lockStanceMovementActive && !allowJumpWhileLockStance;
 
@@ -1460,7 +1589,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void UpdateWallSlideState(SurfaceContacts25D contacts)
     {
-        if (IsVaultingNow || IsLockStanceGroundActive || !enableWallSlide || state.IsGrounded)
+        if (IsVaultingNow || IsLockStanceGroundActive || !enableWallSlide || state.IsGrounded || IsWallSlideSuppressed())
         {
             ClearWallSlideState();
             return;
@@ -1724,6 +1853,49 @@ public sealed class RBCharacter25D : MonoBehaviour
         pendingVaultExitVelocityX = 0f;
         hasPendingVaultExitVelocityRestore = false;
         LastVaultFinishedTime = Time.time;
+    }
+
+    private bool IsSlopeHandlingRuntimeActive(SurfaceContacts25D contacts)
+    {
+        return
+            enableSlopeHandling &&
+            contacts.HasGroundSurface &&
+            contacts.IsSlopeSurfaceAuthorized &&
+            contacts.OnSlope;
+    }
+
+    private void DebugSlopeHandlingState(SurfaceContacts25D contacts)
+    {
+        if (!debugSlopeHandlingState)
+            return;
+
+        bool masterEnabled = enableSlopeHandling;
+        bool authorized = contacts.HasGroundSurface && contacts.IsSlopeSurfaceAuthorized;
+        bool runtimeActive = IsSlopeHandlingRuntimeActive(contacts);
+        bool grounded = state.IsGrounded;
+        int groundLayer = contacts.GroundHit.collider != null ? contacts.GroundHit.collider.gameObject.layer : -1;
+
+        if (masterEnabled == lastSlopeDebugMasterEnabled &&
+            authorized == lastSlopeDebugAuthorized &&
+            runtimeActive == lastSlopeDebugRuntimeActive &&
+            grounded == lastSlopeDebugGrounded &&
+            groundLayer == lastSlopeDebugGroundLayer)
+        {
+            return;
+        }
+
+        lastSlopeDebugMasterEnabled = masterEnabled;
+        lastSlopeDebugAuthorized = authorized;
+        lastSlopeDebugRuntimeActive = runtimeActive;
+        lastSlopeDebugGrounded = grounded;
+        lastSlopeDebugGroundLayer = groundLayer;
+
+        string groundLayerName = groundLayer >= 0 ? LayerMask.LayerToName(groundLayer) : "None";
+        string groundColliderName = contacts.GroundHit.collider != null ? contacts.GroundHit.collider.name : "null";
+
+        Debug.Log(
+            $"[RBCharacter25D:Slope] master={masterEnabled} grounded={grounded} hasGround={contacts.HasGroundSurface} authorized={authorized} onSlope={contacts.OnSlope} runtimeActive={runtimeActive} groundCollider={groundColliderName} groundLayer={groundLayerName}",
+            this);
     }
 
     private void LogAccelerationDebug(

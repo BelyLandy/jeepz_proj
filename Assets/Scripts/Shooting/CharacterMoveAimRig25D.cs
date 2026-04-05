@@ -9,10 +9,15 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     [Header("References")]
     [SerializeField] private RBCharacter25D character;
     [SerializeField] private PlayerInput playerInput;
+    [SerializeField] private PlayerControlLock25D controlLock;
+    [SerializeField] private CharacterCrouch25D crouch;
     [SerializeField] private Rig leftHandRig;
     [SerializeField] private Rig rightHandRig;
+    [SerializeField] private Rig headAimRig;
     [SerializeField] private Transform leftArmAimObject;
     [SerializeField] private Transform rightArmAimObject;
+    [SerializeField] private Transform headAimObject;
+    [SerializeField] private Transform headAimObjectSecondary;
 
     [Header("Action Lookup")]
     [SerializeField] private bool useCurrentActionMap = true;
@@ -23,6 +28,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float moveAimDeadzone = 0.1f;
     [SerializeField] private float leftLocalAngleOffsetX = 0f;
     [SerializeField] private float rightLocalAngleOffsetX = 0f;
+    [SerializeField] private float headForwardLocalZ = -59.614f;
+    [SerializeField] private float headLocalAngleOffsetZ = 0f;
+    [SerializeField] private float headSecondaryAlternateHandLocalYOffset = 60f;
 
     [Header("Movement Shot Fade")]
     [Tooltip("Вне LockStance после выстрела активная рука уходит из 1 в 0 за это время.")]
@@ -53,8 +61,12 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     private Vector3 leftArmBaseLocalEuler;
     private Vector3 rightArmBaseLocalEuler;
+    private Vector3 headBaseLocalEuler;
+    private Vector3 headSecondaryBaseLocalEuler;
     private bool hasLeftArmBaseLocalEuler;
     private bool hasRightArmBaseLocalEuler;
+    private bool hasHeadBaseLocalEuler;
+    private bool hasHeadSecondaryBaseLocalEuler;
 
     private bool currentUsesLeftRig;
     private bool hasHandSelection;
@@ -62,6 +74,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     private float primaryVisibleWeight;
     private float leftRuntimeWeight;
     private float rightRuntimeWeight;
+    private float headRuntimeWeight;
 
     private bool lockStanceShotPulseActive;
     private float lockStanceShotPulseStartedAt;
@@ -72,6 +85,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     public float CurrentPrimaryVisibleWeight => primaryVisibleWeight;
     public float LeftCurrentRigWeight => leftRuntimeWeight;
     public float RightCurrentRigWeight => rightRuntimeWeight;
+    public float HeadCurrentRigWeight => headRuntimeWeight;
 
     private void Reset()
     {
@@ -80,6 +94,12 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
+
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (crouch == null)
+            crouch = GetComponent<CharacterCrouch25D>();
     }
 
     private void Awake()
@@ -90,9 +110,15 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
 
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (crouch == null)
+            crouch = GetComponent<CharacterCrouch25D>();
+
         ClampSettings();
-        CacheBaseArmRotations();
-        ApplyRigWeightsImmediate(0f, 0f);
+        CacheBaseAimRotations();
+        ApplyRigWeightsImmediate(0f, 0f, 0f);
     }
 
     private void OnValidate()
@@ -105,13 +131,19 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
 
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (crouch == null)
+            crouch = GetComponent<CharacterCrouch25D>();
+
         if (string.IsNullOrWhiteSpace(actionMapName))
             actionMapName = "Player";
 
         if (string.IsNullOrWhiteSpace(moveActionName))
             moveActionName = "Move";
 
-        CacheBaseArmRotations();
+        CacheBaseAimRotations();
     }
 
     private void OnEnable()
@@ -126,7 +158,8 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         primaryVisibleWeight = 0f;
         leftRuntimeWeight = 0f;
         rightRuntimeWeight = 0f;
-        ApplyRigWeightsImmediate(0f, 0f);
+        headRuntimeWeight = 0f;
+        ApplyRigWeightsImmediate(0f, 0f, 0f);
     }
 
     private void Update()
@@ -145,6 +178,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         lockStanceShotDipWeight = Mathf.Clamp01(lockStanceShotDipWeight);
         lockStanceShotDipDownTime = Mathf.Max(0.0001f, lockStanceShotDipDownTime);
         lockStanceShotRecoverTime = Mathf.Max(0.0001f, lockStanceShotRecoverTime);
+        headSecondaryAlternateHandLocalYOffset = Mathf.Abs(headSecondaryAlternateHandLocalYOffset);
     }
 
     private void ResolveActions(bool forceResubscribe)
@@ -170,12 +204,21 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     private void UpdateAimVisual()
     {
-        bool hasMoveAim = TryGetRawMoveAim(out Vector2 moveAim);
+        bool isControlLocked = controlLock != null && controlLock.IsControlLocked;
         bool isLockStance = character != null && character.IsLockStanceMovementActive;
+        bool isCrouching = crouch != null && crouch.IsCrouching;
+        bool shouldForceCrouchForwardAim = isCrouching && !isLockStance;
+
+        Vector2 moveAim = Vector2.zero;
+        bool hasMoveAim = !isControlLocked && !shouldForceCrouchForwardAim && TryGetRawMoveAim(out moveAim);
         bool isLockStanceAimActive = isLockStance && hasMoveAim;
 
         Vector3 aimDirection;
-        if (hasMoveAim)
+        if (shouldForceCrouchForwardAim)
+        {
+            aimDirection = GetFallbackShotDirection();
+        }
+        else if (hasMoveAim)
         {
             aimDirection = new Vector3(moveAim.x, moveAim.y, 0f).normalized;
         }
@@ -190,12 +233,16 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         aimDirection = ResolveDirectionForCurrentState(aimDirection);
         currentAimAngleDeg = DirectionToVisualAngleDeg(aimDirection);
+        float combatAimAngleZ = DirectionToCombatAimAngleZ(aimDirection);
+        float headRelativeAimAngleZ = DirectionToHeadRelativeAimAngleZ(aimDirection, GetEffectiveFacingSign());
         heldAimAngleDeg = currentAimAngleDeg;
         heldShotDirection = aimDirection;
 
-        EvaluateHandForDirection(aimDirection, true);
+        if (!isControlLocked)
+            EvaluateHandForDirection(aimDirection, true);
+
         UpdatePrimaryVisibleWeight(isLockStance, isLockStanceAimActive);
-        ApplyVisualAimAndWeights(currentAimAngleDeg);
+        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ);
     }
 
     public void NotifyShotDirection(Vector3 shotDirection)
@@ -206,6 +253,8 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         shotDirection = ResolveDirectionForCurrentState(shotDirection);
 
         currentAimAngleDeg = DirectionToVisualAngleDeg(shotDirection);
+        float combatAimAngleZ = DirectionToCombatAimAngleZ(shotDirection);
+        float headRelativeAimAngleZ = DirectionToHeadRelativeAimAngleZ(shotDirection, GetEffectiveFacingSign());
         heldAimAngleDeg = currentAimAngleDeg;
         heldShotDirection = shotDirection;
 
@@ -225,7 +274,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
             lockStanceShotPulseActive = false;
         }
 
-        ApplyVisualAimAndWeights(currentAimAngleDeg);
+        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ);
     }
 
     public bool EvaluateHandForDirection(Vector3 direction, bool updateState)
@@ -276,6 +325,15 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     private void UpdatePrimaryVisibleWeight(bool isLockStance, bool isLockStanceAimActive)
     {
+        bool isCrouching = crouch != null && crouch.IsCrouching;
+
+        if (isCrouching && !isLockStance)
+        {
+            lockStanceShotPulseActive = false;
+            primaryVisibleWeight = 1f;
+            return;
+        }
+
         if (isLockStanceAimActive)
         {
             if (lockStanceShotPulseActive)
@@ -341,6 +399,12 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     public Vector3 ResolveDirectionForCurrentState(Vector3 direction)
     {
+        bool isLockStance = character != null && character.IsLockStanceMovementActive;
+        bool shouldForceCrouchForwardAim = crouch != null && crouch.IsCrouching && !isLockStance;
+
+        if (shouldForceCrouchForwardAim)
+            return GetFallbackShotDirection();
+
         if (direction.sqrMagnitude <= 0.0001f)
             direction = GetFallbackShotDirection();
 
@@ -411,6 +475,26 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         return MoveToVisualAngleDeg(new Vector2(direction.x, direction.y));
     }
 
+    private static float DirectionToCombatAimAngleZ(Vector3 direction)
+    {
+        Vector2 aim = new Vector2(direction.x, direction.y);
+        if (aim.sqrMagnitude <= 0.0001f)
+            return 0f;
+
+        return Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg;
+    }
+
+    private static float DirectionToHeadRelativeAimAngleZ(Vector3 direction, int facingSign)
+    {
+        Vector2 aim = new Vector2(direction.x, direction.y);
+        if (aim.sqrMagnitude <= 0.0001f)
+            return 0f;
+
+        aim.Normalize();
+        float relativeX = facingSign >= 0 ? aim.x : -aim.x;
+        return Mathf.Atan2(aim.y, relativeX) * Mathf.Rad2Deg;
+    }
+
     private static float MoveToVisualAngleDeg(Vector2 move)
     {
         float angle = Mathf.Atan2(-move.x, -move.y) * Mathf.Rad2Deg;
@@ -432,7 +516,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         return angleDeg;
     }
 
-    private void CacheBaseArmRotations()
+    private void CacheBaseAimRotations()
     {
         if (leftArmAimObject != null)
         {
@@ -445,12 +529,29 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
             rightArmBaseLocalEuler = rightArmAimObject.localEulerAngles;
             hasRightArmBaseLocalEuler = true;
         }
+
+        if (headAimObject != null)
+        {
+            headBaseLocalEuler = headAimObject.localEulerAngles;
+            hasHeadBaseLocalEuler = true;
+        }
+
+        if (headAimObjectSecondary != null)
+        {
+            headSecondaryBaseLocalEuler = headAimObjectSecondary.localEulerAngles;
+            hasHeadSecondaryBaseLocalEuler = true;
+        }
     }
 
-    private void ApplyVisualAimAndWeights(float angleDeg)
+    private void ApplyVisualAimAndWeights(float angleDeg, float combatAimAngleZ, float headRelativeAimAngleZ)
     {
         ApplyArmLocalX(leftArmAimObject, ref hasLeftArmBaseLocalEuler, ref leftArmBaseLocalEuler, angleDeg + leftLocalAngleOffsetX);
         ApplyArmLocalX(rightArmAimObject, ref hasRightArmBaseLocalEuler, ref rightArmBaseLocalEuler, angleDeg + rightLocalAngleOffsetX);
+
+        ApplyHeadLocalRotation(headAimObject, ref hasHeadBaseLocalEuler, ref headBaseLocalEuler, 0f, headForwardLocalZ - headRelativeAimAngleZ + headLocalAngleOffsetZ);
+
+        float extraSecondaryHeadY = EvaluateHeadSecondaryAlternateHandLocalYOffset();
+        ApplyHeadLocalRotation(headAimObjectSecondary, ref hasHeadSecondaryBaseLocalEuler, ref headSecondaryBaseLocalEuler, extraSecondaryHeadY, headForwardLocalZ - headRelativeAimAngleZ + headLocalAngleOffsetZ);
 
         if (currentUsesLeftRig)
         {
@@ -463,7 +564,23 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
             leftRuntimeWeight = MoveTowardsByDuration(leftRuntimeWeight, 0f, inactiveHandFadeOutTime);
         }
 
-        ApplyRigWeightsImmediate(leftRuntimeWeight, rightRuntimeWeight);
+        headRuntimeWeight = primaryVisibleWeight;
+        ApplyRigWeightsImmediate(leftRuntimeWeight, rightRuntimeWeight, headRuntimeWeight);
+    }
+
+    private float EvaluateHeadSecondaryAlternateHandLocalYOffset()
+    {
+        bool isLockStance = character != null && character.IsLockStanceMovementActive;
+        if (!isLockStance || !hasHandSelection)
+            return 0f;
+
+        bool frontUsesLeft = GetFrontHemisphereUsesLeftForCurrentFacing();
+        bool isAlternateHand = currentUsesLeftRig != frontUsesLeft;
+        if (!isAlternateHand)
+            return 0f;
+
+        int facingSign = GetEffectiveFacingSign();
+        return facingSign >= 0 ? headSecondaryAlternateHandLocalYOffset : -headSecondaryAlternateHandLocalYOffset;
     }
 
     private static void ApplyArmLocalX(Transform target, ref bool hasBaseEuler, ref Vector3 baseEuler, float xAngle)
@@ -482,15 +599,36 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         target.localRotation = Quaternion.Euler(euler);
     }
 
-    private void ApplyRigWeightsImmediate(float leftWeight, float rightWeight)
+    private static void ApplyHeadLocalRotation(Transform target, ref bool hasBaseEuler, ref Vector3 baseEuler, float extraYAngle, float zAngle)
+    {
+        if (target == null)
+            return;
+
+        if (!hasBaseEuler)
+        {
+            baseEuler = target.localEulerAngles;
+            hasBaseEuler = true;
+        }
+
+        Vector3 euler = baseEuler;
+        euler.y = baseEuler.y + extraYAngle;
+        euler.z = zAngle;
+        target.localRotation = Quaternion.Euler(euler);
+    }
+
+    private void ApplyRigWeightsImmediate(float leftWeight, float rightWeight, float headWeight)
     {
         leftRuntimeWeight = Mathf.Clamp01(leftWeight);
         rightRuntimeWeight = Mathf.Clamp01(rightWeight);
+        headRuntimeWeight = Mathf.Clamp01(headWeight);
 
         if (leftHandRig != null)
             leftHandRig.weight = leftRuntimeWeight;
 
         if (rightHandRig != null)
             rightHandRig.weight = rightRuntimeWeight;
+
+        if (headAimRig != null)
+            headAimRig.weight = headRuntimeWeight;
     }
 }

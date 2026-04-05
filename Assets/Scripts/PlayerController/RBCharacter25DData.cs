@@ -20,6 +20,7 @@ public struct SurfaceContacts25D
     public RaycastHit GroundHit;
     public Vector3 GroundNormal;
     public bool OnSlope;
+    public bool IsSlopeSurfaceAuthorized;
     public float SlopeAngle;
     public Vector3 SlopeTangent;
     public float DownhillSign;

@@ -8,6 +8,8 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     [Header("References")]
     [SerializeField] private RBCharacter25D character;
     [SerializeField] private PlayerInput playerInput;
+    [SerializeField] private PlayerControlLock25D controlLock;
+    [SerializeField] private CharacterCrouch25D crouch;
 
     [Header("Action Lookup")]
     [Tooltip("Если включено, Move/Jump будут искаться в текущей active action map у PlayerInput.")]
@@ -31,9 +33,11 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     private InputAction moveAction;
     private InputAction jumpAction;
     private InputAction lockStanceAction;
+    private bool wasControlLockedLastFrame;
 
     public float CurrentMoveX { get; private set; }
     public float CurrentMoveY { get; private set; }
+    public Vector2 CurrentRawMove { get; private set; }
     public bool CurrentLockStanceHeld { get; private set; }
 
     private void Reset()
@@ -43,6 +47,12 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
 
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
+
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (crouch == null)
+            crouch = GetComponent<CharacterCrouch25D>();
     }
 
     private void Awake()
@@ -52,6 +62,12 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
 
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
+
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (crouch == null)
+            crouch = GetComponent<CharacterCrouch25D>();
 
         analogDeadzoneX = Mathf.Clamp01(analogDeadzoneX);
     }
@@ -65,6 +81,12 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
 
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
+
+        if (controlLock == null)
+            controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (crouch == null)
+            crouch = GetComponent<CharacterCrouch25D>();
 
         if (string.IsNullOrWhiteSpace(actionMapName))
             actionMapName = "Player";
@@ -90,7 +112,9 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
         UnsubscribeJumpCallbacks();
         CurrentMoveX = 0f;
         CurrentMoveY = 0f;
+        CurrentRawMove = Vector2.zero;
         CurrentLockStanceHeld = false;
+        wasControlLockedLastFrame = false;
 
         if (character != null)
         {
@@ -103,10 +127,21 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     {
         ResolveActions(forceResubscribe: false);
 
-        Vector2 move = ReadMoveVector();
+        bool isControlLocked = controlLock != null && controlLock.IsControlLocked;
+        if (isControlLocked && !wasControlLockedLastFrame && character != null)
+            character.ClearExternalInputState();
+        wasControlLockedLastFrame = isControlLocked;
+
+        Vector2 move = isControlLocked ? Vector2.zero : ReadMoveVector();
+        CurrentRawMove = move;
         float moveX = ResolveMoveX(move);
         float moveY = ResolveMoveY(move);
-        bool lockStanceHeld = ReadLockStanceHeld();
+
+        if (ShouldBlockHorizontalMovementWhileCrouching())
+            moveX = 0f;
+
+        bool lockStanceHeld = !isControlLocked && ReadLockStanceHeld();
+        bool jumpHeld = !isControlLocked && ReadJumpHeld();
 
         CurrentMoveX = moveX;
         CurrentMoveY = moveY;
@@ -116,8 +151,17 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
             return;
 
         character.SetMoveInput(moveX, moveY);
-        character.SetJumpHeld(ReadJumpHeld());
+        character.SetJumpHeld(jumpHeld);
         character.SetLockStanceHeld(lockStanceHeld);
+
+        if (isControlLocked)
+            character.ClearExternalInputState(clearMove: false);
+    }
+
+
+    private bool ShouldBlockHorizontalMovementWhileCrouching()
+    {
+        return crouch != null && crouch.IsCrouching && crouch.DisableHorizontalMovementWhileCrouching;
     }
 
     private void ResolveActions(bool forceResubscribe)
@@ -170,10 +214,17 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
 
     private void SyncImmediateState()
     {
-        Vector2 move = ReadMoveVector();
+        bool isControlLocked = controlLock != null && controlLock.IsControlLocked;
+        Vector2 move = isControlLocked ? Vector2.zero : ReadMoveVector();
+        CurrentRawMove = move;
         float moveX = ResolveMoveX(move);
         float moveY = ResolveMoveY(move);
-        bool lockStanceHeld = ReadLockStanceHeld();
+
+        if (ShouldBlockHorizontalMovementWhileCrouching())
+            moveX = 0f;
+
+        bool lockStanceHeld = !isControlLocked && ReadLockStanceHeld();
+        bool jumpHeld = !isControlLocked && ReadJumpHeld();
 
         CurrentMoveX = moveX;
         CurrentMoveY = moveY;
@@ -182,14 +233,19 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
         if (character == null)
             return;
 
+        if (isControlLocked)
+            character.ClearExternalInputState();
+
         character.SetMoveInput(moveX, moveY);
-        character.SetJumpHeld(ReadJumpHeld());
+        character.SetJumpHeld(jumpHeld);
         character.SetLockStanceHeld(lockStanceHeld);
     }
 
     private void OnJumpStarted(InputAction.CallbackContext context)
     {
         if (character == null)
+            return;
+        if (controlLock != null && controlLock.IsControlLocked)
             return;
 
         character.SetJumpHeld(true);
@@ -199,6 +255,8 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
     private void OnJumpCanceled(InputAction.CallbackContext context)
     {
         if (character == null)
+            return;
+        if (controlLock != null && controlLock.IsControlLocked)
             return;
 
         character.SetJumpHeld(false);
@@ -246,4 +304,3 @@ public sealed class RBCharacter25DPlayerInput : MonoBehaviour
         return lockStanceAction != null && lockStanceAction.enabled && lockStanceAction.IsPressed();
     }
 }
-

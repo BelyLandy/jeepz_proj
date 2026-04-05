@@ -18,10 +18,10 @@ TagManager:
   - BackgroundParallax
   - onlyVaultMask_r
   - onlyVaultMask_l
-  - 
-  - 
-  - 
-  - 
+  - HeroHurtbox
+  - EnemyProjectile
+  - Hero
+  - Slope
   - 
   - 
   - 
