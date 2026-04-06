@@ -250,6 +250,7 @@ public sealed class RBCharacter25D : MonoBehaviour
     private float currentHorizontalSpeedAbs;
     private float pendingVaultExitVelocityX;
     private bool hasPendingVaultExitVelocityRestore;
+    private float vaultExitVelocityRestoreReadyTime = InvalidPastTime;
     private float lastNonZeroInputX = 1f;
     private float lastDebugLogTime = InvalidPastTime;
     private float runtimeGravityScale = 1f;
@@ -429,6 +430,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (StepVaultIfActive())
             return;
 
+        TryApplyPendingVaultExitVelocityRestore();
         ApplyExtraGravity();
 
         if (!enableDoubleJumpSpeedBoost)
@@ -569,6 +571,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         currentHorizontalSpeedAbs = 0f;
         pendingVaultExitVelocityX = 0f;
         hasPendingVaultExitVelocityRestore = false;
+        vaultExitVelocityRestoreReadyTime = InvalidPastTime;
         externalMoveX = 0f;
         externalLockStanceHeld = false;
         externalJumpHeld = false;
@@ -1297,6 +1300,10 @@ public sealed class RBCharacter25D : MonoBehaviour
         int jumpedFromWallSide = state.WallSlideSide;
         float jumpDirectionX = jumpedFromWallSide == WallSideLeft ? 1f : -1f;
 
+        // После wall jump fallback-facing для стрельбы/aim должен
+        // смотреть в сторону отталкивания, а не оставаться направленным в стену.
+        lastNonZeroInputX = Mathf.Sign(jumpDirectionX);
+
         state.PendingSlopeStickAfterJump = false;
         state.SlopeLockUntilTime = InvalidPastTime;
         UpdateSlopeXConstraint(false);
@@ -1792,6 +1799,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         pendingVaultExitVelocityX = hasPendingVaultExitVelocityRestore
             ? preVaultVelocityX * vaultExitHorizontalSpeedMultiplier
             : 0f;
+        vaultExitVelocityRestoreReadyTime = InvalidPastTime;
 
         ClearWallSlideState();
         ClearLastSelfJumpState();
@@ -1806,6 +1814,11 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     public void NotifyVaultFinished()
     {
+        NotifyVaultFinished(0f);
+    }
+
+    public void NotifyVaultFinished(float velocityRestoreDelay)
+    {
         state.PendingSlopeStickAfterJump = false;
         state.SlopeLockUntilTime = InvalidPastTime;
         state.JumpBlockedUntilTime = InvalidPastTime;
@@ -1817,7 +1830,6 @@ public sealed class RBCharacter25D : MonoBehaviour
         ClearWallSlideState();
         UpdateSlopeXConstraint(false);
 
-        float restoredVelocityX = 0f;
         bool shouldRestoreVelocity = hasPendingVaultExitVelocityRestore;
 
         if (shouldRestoreVelocity && requireHeldDirectionForVaultSpeedRestore)
@@ -1828,9 +1840,66 @@ public sealed class RBCharacter25D : MonoBehaviour
                 Mathf.Sign(externalMoveX) == Mathf.Sign(pendingVaultExitVelocityX);
         }
 
+        if (!shouldRestoreVelocity)
+        {
+            pendingVaultExitVelocityX = 0f;
+            hasPendingVaultExitVelocityRestore = false;
+            vaultExitVelocityRestoreReadyTime = InvalidPastTime;
+            smoothedInputX = 0f;
+            currentHorizontalSpeedAbs = 0f;
+            LastVaultFinishedTime = Time.time;
+            return;
+        }
+
+        float delay = Mathf.Max(0f, velocityRestoreDelay);
+        if (delay <= 0f)
+        {
+            ApplyPendingVaultExitVelocityRestore(force: true);
+            LastVaultFinishedTime = Time.time;
+            return;
+        }
+
+        SuppressHorizontalLocomotion(delay, clearDrive: true);
+        vaultExitVelocityRestoreReadyTime = Time.time + delay;
+
+        if (rb != null && !rb.isKinematic)
+        {
+            Vector3 velocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(0f, velocity.y, lockZ ? 0f : velocity.z);
+        }
+
+        LastVaultFinishedTime = Time.time;
+    }
+
+    private void TryApplyPendingVaultExitVelocityRestore()
+    {
+        if (!hasPendingVaultExitVelocityRestore)
+            return;
+        if (vaultExitVelocityRestoreReadyTime <= InvalidPastTime)
+            return;
+        if (Time.time < vaultExitVelocityRestoreReadyTime)
+            return;
+
+        ApplyPendingVaultExitVelocityRestore(force: false);
+    }
+
+    private void ApplyPendingVaultExitVelocityRestore(bool force)
+    {
+        if (!hasPendingVaultExitVelocityRestore)
+            return;
+
+        bool shouldRestoreVelocity = true;
+        if (!force && requireHeldDirectionForVaultSpeedRestore)
+        {
+            shouldRestoreVelocity =
+                Mathf.Abs(externalMoveX) > InputEpsilon &&
+                Mathf.Abs(pendingVaultExitVelocityX) > vaultExitMinRestoreSpeed &&
+                Mathf.Sign(externalMoveX) == Mathf.Sign(pendingVaultExitVelocityX);
+        }
+
         if (shouldRestoreVelocity)
         {
-            restoredVelocityX = pendingVaultExitVelocityX;
+            float restoredVelocityX = pendingVaultExitVelocityX;
             float effectiveMoveSpeed = Mathf.Max(DotEpsilon, GetEffectiveMoveSpeed());
             smoothedInputX = Mathf.Clamp(restoredVelocityX / effectiveMoveSpeed, -1f, 1f);
             currentHorizontalSpeedAbs = Mathf.Abs(restoredVelocityX);
@@ -1852,7 +1921,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         pendingVaultExitVelocityX = 0f;
         hasPendingVaultExitVelocityRestore = false;
-        LastVaultFinishedTime = Time.time;
+        vaultExitVelocityRestoreReadyTime = InvalidPastTime;
     }
 
     private bool IsSlopeHandlingRuntimeActive(SurfaceContacts25D contacts)

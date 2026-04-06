@@ -110,6 +110,11 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         new Keyframe(1f, 0f, -2.5f, 0f)
     );
 
+    [Header("Post Vault Settle")]
+    [SerializeField] private float postVaultSettleDuration = 0.05f;
+    [SerializeField] private float postVaultSeparationUp = 0.01f;
+    [SerializeField] private float postVaultGravityResumeDelay = 0.02f;
+
     [Header("Debug")]
     [SerializeField] private bool drawDebugPreview = true;
     [SerializeField] private bool drawDebugWhileSelected = true;
@@ -136,6 +141,8 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
     private Collider ignoredVaultColliderB;
     private float vaultElapsed;
     private float vaultBlockedUntilTime = InvalidPastTime;
+    private bool postVaultGravityResumePending;
+    private float postVaultGravityResumeTime = InvalidPastTime;
 
     public bool IsVaulting => isVaulting;
 
@@ -163,6 +170,8 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
             col.enabled = previousColliderEnabled;
 
         RestoreVaultCollisionIgnores();
+        postVaultGravityResumePending = false;
+        postVaultGravityResumeTime = InvalidPastTime;
         isVaulting = false;
         vaultElapsed = 0f;
     }
@@ -213,6 +222,9 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
 
         vaultDuration = 0.18f;
         arcHeight = 0.45f;
+        postVaultSettleDuration = 0.05f;
+        postVaultSeparationUp = 0.01f;
+        postVaultGravityResumeDelay = 0.02f;
 
         drawDebugPreview = true;
         drawDebugWhileSelected = true;
@@ -221,6 +233,11 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         debugCircleSegments = 14;
 
         ClampSettings();
+    }
+
+    private void FixedUpdate()
+    {
+        TryResumePostVaultGravity();
     }
 
     public bool TryStartVault()
@@ -285,14 +302,15 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         float duration = Mathf.Max(0.0001f, vaultDuration);
         float t = Mathf.Clamp01(vaultElapsed / duration);
 
-        Vector3 nextPosition = Vector3.Lerp(activeCandidate.StartRbPosition, activeCandidate.TargetRbPosition, t);
+        Vector3 finalPosition = GetActiveVaultFinalRbPosition();
+        Vector3 nextPosition = Vector3.Lerp(activeCandidate.StartRbPosition, finalPosition, t);
         float arcOffset = heightCurve != null ? heightCurve.Evaluate(t) * arcHeight : 0f;
         nextPosition.y += arcOffset;
 
         if (controller != null && controller.UsesLockedZ)
             nextPosition.z = controller.LockedZPosition;
 
-        rb.position = nextPosition;
+        rb.MovePosition(nextPosition);
         DrawActiveVaultRuntimeDebug();
 
         if (t >= 1f)
@@ -304,6 +322,8 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         activeCandidate = candidate;
         isVaulting = true;
         vaultElapsed = 0f;
+        postVaultGravityResumePending = false;
+        postVaultGravityResumeTime = InvalidPastTime;
 
         previousUseGravity = rb.useGravity;
         previousIsKinematic = rb.isKinematic;
@@ -325,24 +345,67 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
 
     private void FinishVault()
     {
-        Vector3 finalPosition = activeCandidate.TargetRbPosition;
-        if (controller != null && controller.UsesLockedZ)
-            finalPosition.z = controller.LockedZPosition;
+        Vector3 finalPosition = GetActiveVaultFinalRbPosition();
 
         rb.position = finalPosition;
-        rb.useGravity = previousUseGravity;
         rb.isKinematic = previousIsKinematic;
+        rb.useGravity = false;
+
+        Vector3 velocity = rb.linearVelocity;
+        rb.linearVelocity = new Vector3(0f, 0f, controller != null && controller.UsesLockedZ ? 0f : velocity.z);
 
         if (col != null)
             col.enabled = previousColliderEnabled;
 
         RestoreVaultCollisionIgnores();
 
+        float gravityDelay = Mathf.Max(0f, postVaultGravityResumeDelay);
+        if (previousUseGravity && gravityDelay > 0f)
+        {
+            postVaultGravityResumePending = true;
+            postVaultGravityResumeTime = Time.time + gravityDelay;
+        }
+        else
+        {
+            postVaultGravityResumePending = false;
+            postVaultGravityResumeTime = InvalidPastTime;
+            rb.useGravity = previousUseGravity;
+        }
+
         isVaulting = false;
         vaultElapsed = 0f;
         vaultBlockedUntilTime = Time.time + vaultCooldown;
 
-        controller.NotifyVaultFinished();
+        controller.NotifyVaultFinished(0f);
+    }
+
+    private Vector3 GetActiveVaultFinalRbPosition()
+    {
+        Vector3 finalPosition = activeCandidate.TargetRbPosition;
+        finalPosition.y += postVaultSeparationUp;
+
+        if (controller != null && controller.UsesLockedZ)
+            finalPosition.z = controller.LockedZPosition;
+
+        return finalPosition;
+    }
+
+    private void TryResumePostVaultGravity()
+    {
+        if (!postVaultGravityResumePending)
+            return;
+        if (rb == null)
+        {
+            postVaultGravityResumePending = false;
+            postVaultGravityResumeTime = InvalidPastTime;
+            return;
+        }
+        if (Time.time < postVaultGravityResumeTime)
+            return;
+
+        rb.useGravity = previousUseGravity;
+        postVaultGravityResumePending = false;
+        postVaultGravityResumeTime = InvalidPastTime;
     }
 
     private bool TryFindVault(int directionSign, out VaultCandidate candidate)
@@ -1157,6 +1220,9 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
 
         vaultDuration = Mathf.Max(0.01f, vaultDuration);
         arcHeight = Mathf.Max(0f, arcHeight);
+        postVaultSettleDuration = Mathf.Max(0f, postVaultSettleDuration);
+        postVaultSeparationUp = Mathf.Max(0f, postVaultSeparationUp);
+        postVaultGravityResumeDelay = Mathf.Max(0f, postVaultGravityResumeDelay);
         debugHitMarkerRadius = Mathf.Max(0.005f, debugHitMarkerRadius);
         debugCircleSegments = Mathf.Clamp(debugCircleSegments, 8, 32);
     }
