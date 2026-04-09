@@ -19,6 +19,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     [SerializeField] private Transform rightArmAimObject;
     [SerializeField] private Transform headAimObject;
     [SerializeField] private MultiRotationConstraint neckAlternateHandConstraint;
+    [SerializeField] private HeadTargetTracking25D headTargetTracking;
 
     [Header("Action Lookup")]
     [SerializeField] private bool useCurrentActionMap = true;
@@ -47,6 +48,13 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float hemisphereSwitchHysteresis = 0.1f;
     [Tooltip("За сколько уже неактивная рука плавно уходит из текущего веса в 0 после переключения активной руки.")]
     [SerializeField] private float inactiveHandFadeOutTime = 0.12f;
+
+    [Header("Head Look")]
+    [SerializeField] private float headLookFadeInTime = 0.22f;
+    [SerializeField] private float headLookFadeOutTime = 0.08f;
+    [SerializeField] private float headLookResumeDelay = 0.16f;
+    [SerializeField] private float headLookAngleBlendTime = 0.12f;
+    [SerializeField] private float headLookShotMovementSpeedThreshold = 0.15f;
 
     [Header("LockStance")]
     [Tooltip("Если в LockStance игрок полностью отпустил стик, активная рука уходит из текущего веса в 0 за это время.")]
@@ -95,6 +103,11 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     private bool hasCurrentHeadRelativeAimAngle;
     private bool wasLockStanceAimActiveLastFrame;
 
+    private float headLookRuntimeWeight;
+    private float headLookLatchedRelativeAimAngleZ;
+    private bool hasHeadLookLatchedRelativeAimAngle;
+    private float headLookSuppressedUntilTime = float.NegativeInfinity;
+
     public float CurrentAimAngleDeg => currentAimAngleDeg;
     public bool UsesLeftRig => currentUsesLeftRig;
     public bool UsesRightRig => !currentUsesLeftRig;
@@ -116,6 +129,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         if (crouch == null)
             crouch = GetComponent<CharacterCrouch25D>();
+
+        if (headTargetTracking == null)
+            headTargetTracking = GetComponent<HeadTargetTracking25D>();
     }
 
     private void Awake()
@@ -133,6 +149,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         if (crouch == null)
             crouch = GetComponent<CharacterCrouch25D>();
+
+        if (headTargetTracking == null)
+            headTargetTracking = GetComponent<HeadTargetTracking25D>();
 
         ClampSettings();
         CacheBaseAimRotations();
@@ -155,6 +174,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         if (crouch == null)
             crouch = GetComponent<CharacterCrouch25D>();
+
+        if (headTargetTracking == null)
+            headTargetTracking = GetComponent<HeadTargetTracking25D>();
 
         if (string.IsNullOrWhiteSpace(actionMapName))
             actionMapName = "Player";
@@ -187,6 +209,10 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         hasCurrentHeadRelativeAimAngle = false;
         currentHeadRelativeAimAngleZ = 0f;
         wasLockStanceAimActiveLastFrame = false;
+        headLookRuntimeWeight = 0f;
+        headLookLatchedRelativeAimAngleZ = 0f;
+        hasHeadLookLatchedRelativeAimAngle = false;
+        headLookSuppressedUntilTime = float.NegativeInfinity;
         ApplyRigWeightsImmediate(0f, 0f, 0f);
         ResetNeckAlternateHandConstraint();
     }
@@ -209,6 +235,11 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         lockStanceShotRecoverTime = Mathf.Max(0.0001f, lockStanceShotRecoverTime);
         headAimSwitchBlendTime = Mathf.Max(0.0001f, headAimSwitchBlendTime);
         neckAlternateHandConstraintOffsetX = Mathf.Max(0f, neckAlternateHandConstraintOffsetX);
+        headLookFadeInTime = Mathf.Max(0.0001f, headLookFadeInTime);
+        headLookFadeOutTime = Mathf.Max(0.0001f, headLookFadeOutTime);
+        headLookResumeDelay = Mathf.Max(0f, headLookResumeDelay);
+        headLookAngleBlendTime = Mathf.Max(0.0001f, headLookAngleBlendTime);
+        headLookShotMovementSpeedThreshold = Mathf.Max(0f, headLookShotMovementSpeedThreshold);
     }
 
     private void ResolveActions(bool forceResubscribe)
@@ -273,7 +304,8 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         heldShotDirection = aimDirection;
 
         UpdatePrimaryVisibleWeight(isLockStance, isLockStanceAimActive);
-        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, isLockStance, isLockStanceAimActive);
+        bool hasExplicitHeadAim = isLockStanceAimActive || hasMoveAim || shouldForceCrouchForwardAim;
+        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, hasExplicitHeadAim, isControlLocked, isLockStance, isLockStanceAimActive);
     }
 
     public void NotifyShotDirection(Vector3 shotDirection)
@@ -307,7 +339,10 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
             lockStanceShotPulseActive = false;
         }
 
-        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, isLockStance, isLockStanceAimActive);
+        if (ShouldSuppressHeadLookForShot())
+            headLookSuppressedUntilTime = Time.time + headLookResumeDelay;
+
+        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, true, false, isLockStance, isLockStanceAimActive);
     }
 
     public bool EvaluateHandForDirection(Vector3 direction, bool updateState)
@@ -557,6 +592,98 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         return angleDeg;
     }
 
+    private float DetermineDesiredDisplayedHeadRelativeAimAngle(float baseHeadRelativeAimAngleZ, bool isControlLocked, bool isLockStance, bool isLockStanceAimActive)
+    {
+        bool shouldUseHeadLook = TryGetDesiredHeadLookRelativeAimAngle(isControlLocked, isLockStance, isLockStanceAimActive, out float targetHeadLookRelativeAimAngleZ);
+        UpdateHeadLookRuntime(shouldUseHeadLook, targetHeadLookRelativeAimAngleZ);
+
+        if (isLockStanceAimActive)
+            return baseHeadRelativeAimAngleZ;
+
+        if (shouldUseHeadLook && hasHeadLookLatchedRelativeAimAngle)
+            return headLookLatchedRelativeAimAngleZ;
+
+        if (headLookRuntimeWeight > 0.001f && hasHeadLookLatchedRelativeAimAngle)
+            return Mathf.LerpAngle(baseHeadRelativeAimAngleZ, headLookLatchedRelativeAimAngleZ, headLookRuntimeWeight);
+
+        return baseHeadRelativeAimAngleZ;
+    }
+
+    private bool TryGetDesiredHeadLookRelativeAimAngle(bool isControlLocked, bool isLockStance, bool isLockStanceAimActive, out float headLookRelativeAimAngleZ)
+    {
+        headLookRelativeAimAngleZ = 0f;
+
+        if (headTargetTracking == null)
+            return false;
+
+        if (isControlLocked || isLockStance || isLockStanceAimActive)
+            return false;
+
+        if (Time.time < headLookSuppressedUntilTime)
+            return false;
+
+        int facingSign = GetEffectiveFacingSign();
+        if (!headTargetTracking.TryGetLookDirection(facingSign, out Vector3 lookDirection))
+            return false;
+
+        headLookRelativeAimAngleZ = DirectionToHeadRelativeAimAngleZ(lookDirection, facingSign);
+        return true;
+    }
+
+    private void UpdateHeadLookRuntime(bool shouldUseHeadLook, float targetHeadLookRelativeAimAngleZ)
+    {
+        float targetWeight = shouldUseHeadLook ? 1f : 0f;
+        float duration = targetWeight > headLookRuntimeWeight ? headLookFadeInTime : headLookFadeOutTime;
+        headLookRuntimeWeight = MoveTowardsByDuration(headLookRuntimeWeight, targetWeight, duration);
+
+        if (shouldUseHeadLook)
+        {
+            if (!hasHeadLookLatchedRelativeAimAngle)
+            {
+                headLookLatchedRelativeAimAngleZ = targetHeadLookRelativeAimAngleZ;
+                hasHeadLookLatchedRelativeAimAngle = true;
+            }
+            else
+            {
+                headLookLatchedRelativeAimAngleZ = SmoothTowardsAngleByDuration(headLookLatchedRelativeAimAngleZ, targetHeadLookRelativeAimAngleZ, headLookAngleBlendTime);
+            }
+
+            return;
+        }
+
+        if (headLookRuntimeWeight <= 0.001f)
+        {
+            headLookRuntimeWeight = 0f;
+            headLookLatchedRelativeAimAngleZ = 0f;
+            hasHeadLookLatchedRelativeAimAngle = false;
+        }
+    }
+
+    private bool ShouldSuppressHeadLookForShot()
+    {
+        if (headLookResumeDelay <= 0f)
+            return false;
+
+        return GetCurrentHeadLookMovementSpeed() >= headLookShotMovementSpeedThreshold;
+    }
+
+    private float GetCurrentHeadLookMovementSpeed()
+    {
+        float speed = 0f;
+
+        if (character != null)
+        {
+            speed = Mathf.Max(speed, character.HorizontalSpeedAbs);
+            speed = Mathf.Max(speed, Mathf.Abs(character.SmoothedInputX));
+
+            Rigidbody characterRb = character.RigidbodyComponent;
+            if (characterRb != null)
+                speed = Mathf.Max(speed, Mathf.Abs(characterRb.linearVelocity.x));
+        }
+
+        return speed;
+    }
+
     private void TryAutoAssignHeadAimConstraint()
     {
         if (headAimConstraint != null)
@@ -610,7 +737,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     }
 
-    private void ApplyVisualAimAndWeights(float angleDeg, float combatAimAngleZ, float headRelativeAimAngleZ, bool isLockStance, bool isLockStanceAimActive)
+    private void ApplyVisualAimAndWeights(float angleDeg, float combatAimAngleZ, float headRelativeAimAngleZ, bool hasExplicitHeadAim, bool isControlLocked, bool isLockStance, bool isLockStanceAimActive)
     {
         int facingSign = GetEffectiveFacingSign();
         float? leftLocalYOverride = GetArmLocalYOverride(isLockStance, facingSign, manageLeftArm: true);
@@ -619,8 +746,10 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         ApplyArmLocalRotationWithOptionalFreeze(leftArmAimObject, ref hasLeftArmBaseLocalEuler, ref leftArmBaseLocalEuler, angleDeg + leftLocalAngleOffsetX, leftLocalYOverride, freezeLeftArmPose, frozenLeftArmLocalRotation);
         ApplyArmLocalRotationWithOptionalFreeze(rightArmAimObject, ref hasRightArmBaseLocalEuler, ref rightArmBaseLocalEuler, angleDeg + rightLocalAngleOffsetX, rightLocalYOverride, freezeRightArmPose, frozenRightArmLocalRotation);
 
-        UpdateHeadPoseState(headRelativeAimAngleZ, isLockStance, isLockStanceAimActive);
-        float appliedHeadRelativeAimAngleZ = GetAppliedHeadRelativeAimAngleZ(headRelativeAimAngleZ, isLockStance, isLockStanceAimActive);
+        float baseDisplayedHeadRelativeAimAngleZ = hasExplicitHeadAim ? headRelativeAimAngleZ : 0f;
+        float desiredDisplayedHeadRelativeAimAngleZ = DetermineDesiredDisplayedHeadRelativeAimAngle(baseDisplayedHeadRelativeAimAngleZ, isControlLocked, isLockStance, isLockStanceAimActive);
+        UpdateHeadPoseState(desiredDisplayedHeadRelativeAimAngleZ, isLockStance, isLockStanceAimActive);
+        float appliedHeadRelativeAimAngleZ = GetAppliedHeadRelativeAimAngleZ(desiredDisplayedHeadRelativeAimAngleZ);
         ApplyHeadLocalRotationWithOptionalFreeze(headAimObject, ref hasHeadBaseLocalEuler, ref headBaseLocalEuler, 0f, headForwardLocalZ - appliedHeadRelativeAimAngleZ + headLocalAngleOffsetZ, freezeHeadPose, frozenHeadLocalRotation);
         ApplyNeckAlternateHandConstraint(isLockStanceAimActive);
 
@@ -635,7 +764,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
             leftRuntimeWeight = MoveTowardsByDuration(leftRuntimeWeight, 0f, inactiveHandFadeOutTime);
         }
 
-        headRuntimeWeight = primaryVisibleWeight;
+        headRuntimeWeight = Mathf.Max(primaryVisibleWeight, headLookRuntimeWeight);
         UpdateArmPoseFreezeState();
         UpdateHeadPoseFreezeState();
         ApplyRigWeightsImmediate(leftRuntimeWeight, rightRuntimeWeight, headRuntimeWeight);
@@ -732,43 +861,34 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         ApplyHeadLocalRotation(target, ref hasBaseEuler, ref baseEuler, extraYAngle, zAngle);
     }
 
-    private void UpdateHeadPoseState(float targetHeadRelativeAimAngleZ, bool isLockStance, bool isLockStanceAimActive)
+    private void UpdateHeadPoseState(float desiredHeadRelativeAimAngleZ, bool isLockStance, bool isLockStanceAimActive)
     {
         if (isLockStance && wasLockStanceAimActiveLastFrame && !isLockStanceAimActive)
             BeginHeadPoseFreeze();
 
-        if (isLockStanceAimActive)
+        if (!isLockStance || isLockStanceAimActive)
             ClearHeadPoseFreeze();
 
         if (!hasCurrentHeadRelativeAimAngle)
         {
-            currentHeadRelativeAimAngleZ = targetHeadRelativeAimAngleZ;
+            currentHeadRelativeAimAngleZ = desiredHeadRelativeAimAngleZ;
             hasCurrentHeadRelativeAimAngle = true;
-        }
-        else if (isLockStanceAimActive)
-        {
-            currentHeadRelativeAimAngleZ = SmoothTowardsAngleByDuration(currentHeadRelativeAimAngleZ, targetHeadRelativeAimAngleZ, headAimSwitchBlendTime);
         }
         else if (!freezeHeadPose)
         {
-            currentHeadRelativeAimAngleZ = targetHeadRelativeAimAngleZ;
+            float duration = isLockStanceAimActive ? headAimSwitchBlendTime : headLookAngleBlendTime;
+            currentHeadRelativeAimAngleZ = SmoothTowardsAngleByDuration(currentHeadRelativeAimAngleZ, desiredHeadRelativeAimAngleZ, duration);
         }
 
         wasLockStanceAimActiveLastFrame = isLockStanceAimActive;
     }
 
-    private float GetAppliedHeadRelativeAimAngleZ(float targetHeadRelativeAimAngleZ, bool isLockStance, bool isLockStanceAimActive)
+    private float GetAppliedHeadRelativeAimAngleZ(float desiredHeadRelativeAimAngleZ)
     {
         if (!hasCurrentHeadRelativeAimAngle)
-            return targetHeadRelativeAimAngleZ;
+            return desiredHeadRelativeAimAngleZ;
 
-        if (isLockStanceAimActive)
-            return currentHeadRelativeAimAngleZ;
-
-        if (freezeHeadPose && isLockStance)
-            return currentHeadRelativeAimAngleZ;
-
-        return targetHeadRelativeAimAngleZ;
+        return currentHeadRelativeAimAngleZ;
     }
 
     private static float SmoothTowardsAngleByDuration(float current, float target, float duration)
