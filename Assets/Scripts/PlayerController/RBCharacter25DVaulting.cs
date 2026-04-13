@@ -330,7 +330,7 @@ public sealed class RBCharacter25DVaulting : MonoBehaviour
         previousColliderEnabled = col != null && col.enabled;
 
         float preVaultVelocityX = rb.linearVelocity.x;
-        controller.NotifyVaultStarted(preVaultVelocityX);
+        controller.NotifyVaultStarted(preVaultVelocityX, candidate.DirectionSign);
 
         rb.useGravity = false;
         rb.isKinematic = true;

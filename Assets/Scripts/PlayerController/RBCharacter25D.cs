@@ -2,6 +2,7 @@ using UnityEngine;
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider))]
+[RequireComponent(typeof(CharacterFacingResolver25D))]
 public sealed class RBCharacter25D : MonoBehaviour
 {
     private const float InputEpsilon = 0.01f;
@@ -26,8 +27,8 @@ public sealed class RBCharacter25D : MonoBehaviour
     [SerializeField] private float lockedZ = 0f;
 
     [Header("Movement")]
-    [SerializeField] private float moveSpeed = 8f;
-    [SerializeField] private float acceleration = 40f;
+    [SerializeField] private float moveSpeed = 11f;
+    [SerializeField] private float acceleration = 30f;
     [SerializeField] private float deceleration = 60f;
     [SerializeField, Range(0f, 1f)] private float airControl = 0.8f;
 
@@ -40,21 +41,77 @@ public sealed class RBCharacter25D : MonoBehaviour
     [SerializeField] private bool enableDoubleJumpSpeedBoost = true;
 
     [Tooltip("На сколько увеличить moveSpeed после double jump.")]
-    [SerializeField] private float doubleJumpMoveSpeedBonus = 3f;
+    [SerializeField] private float doubleJumpMoveSpeedBonus = 2f;
 
     [Header("Jump Cooldown After Double Jump Landing")]
     [Tooltip("После приземления из double jump включать очень короткий кулдаун на новый прыжок.")]
     [SerializeField] private bool enableJumpCooldownAfterDoubleJumpLanding = true;
 
     [Tooltip("Длительность маленького кулдауна на прыжок после приземления из double jump.")]
-    [SerializeField] private float jumpCooldownAfterDoubleJumpLanding = 0.01f;
+    [SerializeField] private float jumpCooldownAfterDoubleJumpLanding = 0.08f;
 
     [Header("Move Ramp / Blend Tree")]
     [Tooltip("Плавность набора направления от 0 к 1. Чем меньше значение, тем мягче старт.")]
-    [SerializeField] private float inputAcceleration = 8f;
+    [SerializeField] private float inputAcceleration = 2f;
 
     [Tooltip("Плавность отпускания/торможения направления к 0.")]
     [SerializeField] private float inputDeceleration = 12f;
+
+    [Header("Landing Turn Control")]
+    [Tooltip("Ослаблять ли занос при резком развороте сразу после приземления.")]
+    [SerializeField] private bool reduceLandingReverseSkid = true;
+
+    [Tooltip("Как долго после приземления действует анти-занос для разворота в противоположную сторону.")]
+    [SerializeField] private float landingReverseNoSkidWindow = 0.1f;
+
+    [Tooltip("Во сколько раз сохранить старую горизонтальную скорость при landing-развороте. 0 = полностью срезать перенос, 1 = оставить как есть.")]
+    [SerializeField, Range(0f, 1f)] private float landingReverseCarryMultiplier = 0.35f;
+
+    [Tooltip("Минимальная скорость, при которой landing-разворот считается достаточно сильным для анти-заноса.")]
+    [SerializeField] private float landingReverseMinSpeed = 1.5f;
+
+    [Header("Air Shot Physics Assist")]
+    [Tooltip("Включить новую воздушную помощь от выстрелов: не прямой recoil velocity, а краткое замедление или ускорение падения.")]
+    [SerializeField] private bool useAirShotPhysicsAssist = true;
+
+    [Tooltip("Нормализовать ли вклад X/Y при диагональном air-shot. Включено = диагональ делит влияние между осями. Выключено = X и Y считаются независимо по сырым осям выстрела.")]
+    [SerializeField] private bool normalizeAirShotRecoilAxes = true;
+
+    [Tooltip("На сколько секунд обычный air-shot замедляет падение.")]
+    [SerializeField] private float airShotSlowFallDuration = 0.07f;
+
+    [Tooltip("Множитель gravity во время short slow-fall окна. Меньше = сильнее подвисание.")]
+    [SerializeField, Range(0f, 1f)] private float airShotSlowFallGravityMultiplier = 0.25f;
+
+    [Tooltip("Максимальная скорость падения вниз во время slow-fall окна.")]
+    [SerializeField] private float airShotSlowFallMaxDownSpeed = 3.5f;
+
+    [Tooltip("Начиная с какого положительного Y направления выстрел считается выстрелом вверх и включает fast-fall.")]
+    [SerializeField, Range(0f, 1f)] private float airShotUpwardThreshold = 0.35f;
+
+    [Tooltip("Начиная с какого отрицательного Y направления выстрел считается выстрелом вниз и включает slow-fall. Вблизи горизонтали по Y не происходит ничего.")]
+    [SerializeField, Range(0f, 1f)] private float airShotDownwardThreshold = 0.35f;
+
+    [Tooltip("На сколько секунд выстрел вверх включает усиленное падение.")]
+    [SerializeField] private float airShotFastFallDuration = 0.06f;
+
+    [Tooltip("Множитель gravity во время fast-fall окна после выстрела вверх.")]
+    [SerializeField] private float airShotFastFallGravityMultiplier = 1.8f;
+
+    [Tooltip("Во сколько раз сразу урезать текущий подъём, если выстрел в воздухе направлен вверх.")]
+    [SerializeField, Range(0f, 1f)] private float airShotUpwardRiseCutMultiplier = 0.35f;
+
+    [Tooltip("Начиная с какого |X| нормализованного направления выстрела включать horizontal recoil-модификатор.")]
+    [SerializeField, Range(0f, 1f)] private float airShotHorizontalThreshold = 0.35f;
+
+    [Tooltip("На сколько секунд выстрел в воздухе влияет на движение по X в сторону выстрела.")]
+    [SerializeField] private float airShotHorizontalRecoilDuration = 0.07f;
+
+    [Tooltip("Насколько быстро в воздухе гасится скорость по X в сторону выстрела во время horizontal recoil окна.")]
+    [SerializeField] private float airShotHorizontalRecoilDeceleration = 45f;
+
+    [Tooltip("Максимальная скорость по X в сторону выстрела во время horizontal recoil окна. Меньше = сильнее режется движение в сторону выстрела.")]
+    [SerializeField] private float airShotHorizontalRecoilMaxSpeedTowardShot = 2f;
 
     [Header("Slope Handling")]
     [SerializeField] private bool enableSlopeHandling = false;
@@ -68,6 +125,43 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     [Tooltip("Минимальная скорость вдоль склона, чтобы после отпускания был заметный доскольз.")]
     [SerializeField] private float downhillSlideMinSpeed = 1f;
+
+    [Header("Run Stop State")]
+    [Tooltip("Включить runtime-state для анимации stop на плоской поверхности после отпускания направления.")]
+    [SerializeField] private bool enableRunStopState = true;
+
+    [Tooltip("Скорость, выше которой можно впервые войти в run stop.")]
+    [SerializeField] private float runStopEnterSpeed = 2.2f;
+
+    [Tooltip("Скорость, ниже которой run stop завершается.")]
+    [SerializeField] private float runStopExitSpeed = 0.8f;
+
+    [Tooltip("Как долго после реального ground-run можно ещё активировать run stop.")]
+    [SerializeField] private float runStopRecentRunWindow = 0.18f;
+
+    [Tooltip("Мёртвая зона input по X для определения, что направление отпущено.")]
+    [SerializeField] private float runStopInputDeadzone = 0.1f;
+
+    [Tooltip("Минимальная доля от effective move speed, начиная с которой движение считается полноценным ground-run для будущей stop-анимации.")]
+    [SerializeField, Range(0f, 1f)] private float runStopRunQualificationSpeedNormalized = 0.35f;
+
+    [Tooltip("Короткое окно подавления run stop сразу после приземления.")]
+    [SerializeField] private float runStopSuppressAfterLandingWindow = 0.08f;
+
+    [Tooltip("Если true, crouch не может активировать обычный run stop.")]
+    [SerializeField] private bool suppressRunStopWhileCrouching = true;
+
+    [Tooltip("Если true, любой control lock подавляет обычный run stop.")]
+    [SerializeField] private bool suppressRunStopWhileControlLocked = true;
+
+    [Tooltip("Если true, lock stance подавляет обычный run stop.")]
+    [SerializeField] private bool suppressRunStopWhileLockStance = true;
+
+    [Tooltip("Если true, stop-анимация не включается на slope-поверхностях.")]
+    [SerializeField] private bool suppressRunStopOnAuthorizedSlope = true;
+
+    [Tooltip("Если true, отсутствие input по X должно сочетаться с нейтральным input по Y.")]
+    [SerializeField] private bool requireNeutralMoveYForRunStop = false;
 
     [Tooltip("После вертикального прыжка с места на склоне кратко фиксировать героя при приземлении.")]
     [SerializeField] private bool stickToSlopeAfterVerticalJump = true;
@@ -173,6 +267,18 @@ public sealed class RBCharacter25D : MonoBehaviour
     [Tooltip("Максимальная скорость скольжения вниз по стене.")]
     [SerializeField] private float wallSlideSpeed = 2.5f;
 
+    [Tooltip("Позволяет удержанием вниз ускорять скольжение по стене, если LockStance не удерживается.")]
+    [SerializeField] private bool enableFastWallSlideOnDownInput = true;
+
+    [Tooltip("Насколько сильно нужно нажать вниз, чтобы включить ускоренное скольжение по стене.")]
+    [SerializeField, Range(0f, 1f)] private float fastWallSlideDownInputThreshold = 0.5f;
+
+    [Tooltip("Максимальная скорость ускоренного скольжения вниз по стене при удержании вниз.")]
+    [SerializeField] private float fastWallSlideSpeed = 5.5f;
+
+    [Tooltip("Насколько быстро обычное скольжение разгоняется до fast wall slide при удержании вниз.")]
+    [SerializeField] private float fastWallSlideAcceleration = 35f;
+
     [Tooltip("Разрешить герою после прыжка в стену ещё немного скользить вверх по ней, плавно замедляясь.")]
     [SerializeField] private bool allowWallSlideUpwardMomentum = true;
 
@@ -230,6 +336,9 @@ public sealed class RBCharacter25D : MonoBehaviour
     private Rigidbody rb;
     private CapsuleCollider col;
     private RBCharacter25DVaulting vaulting;
+    private CharacterFacingResolver25D facingResolver;
+    private CharacterCrouch25D crouchController;
+    private PlayerControlLock25D controlLock;
     private RBCharacter25DSurfaceSensor surfaceSensor;
     private OneWayPlatformController oneWayPlatformController;
 
@@ -248,6 +357,11 @@ public sealed class RBCharacter25D : MonoBehaviour
     private bool externalJumpReleasedQueued;
     private float smoothedInputX;
     private float currentHorizontalSpeedAbs;
+    private bool isSlopeSlidingNow;
+    private float slopeSlideSpeedNormalized;
+    private bool isRunStoppingNow;
+    private float runStopSpeedNormalized;
+    private float lastGroundRunTime = InvalidPastTime;
     private float pendingVaultExitVelocityX;
     private bool hasPendingVaultExitVelocityRestore;
     private float vaultExitVelocityRestoreReadyTime = InvalidPastTime;
@@ -263,12 +377,21 @@ public sealed class RBCharacter25D : MonoBehaviour
     private float externalHorizontalLocomotionSuppressUntilTime = InvalidPastTime;
     private float externalWallSlideSuppressUntilTime = InvalidPastTime;
     private float externalVaultStartSuppressUntilTime = InvalidPastTime;
+    private float airShotSlowFallUntilTime = InvalidPastTime;
+    private float airShotFastFallUntilTime = InvalidPastTime;
+    private float airShotHorizontalRecoilUntilTime = InvalidPastTime;
+    private float airShotSlowFallWeight;
+    private float airShotFastFallWeight;
+    private float airShotHorizontalRecoilWeight;
+    private int airShotHorizontalShotSign;
 
     public bool IsGroundedNow => state.IsGrounded;
     public bool IsWallSliding => state.IsWallSliding;
     public bool IsVaultingNow => vaulting != null && vaulting.IsVaulting;
     public float LastVaultFinishedTime { get; private set; } = InvalidPastTime;
     public float LastWallSlideFinishedTime { get; private set; } = InvalidPastTime;
+    public int LastLandingStateVersion { get; private set; }
+    public float LastLandingTime { get; private set; } = InvalidPastTime;
     public int WallSlideSide => state.WallSlideSide;
     public bool IsLockStanceHeld => externalLockStanceHeld;
     public bool IsLockStanceLatched => enableLockStance && lockStanceLatched;
@@ -286,6 +409,10 @@ public sealed class RBCharacter25D : MonoBehaviour
     public float SpeedNormalized => EffectiveMoveSpeed > DotEpsilon
         ? Mathf.Clamp01(currentHorizontalSpeedAbs / EffectiveMoveSpeed)
         : 0f;
+    public bool IsSlopeSlidingNow => isSlopeSlidingNow;
+    public float SlopeSlideSpeedNormalized => slopeSlideSpeedNormalized;
+    public bool IsRunStoppingNow => isRunStoppingNow;
+    public float RunStopSpeedNormalized => runStopSpeedNormalized;
 
     public Rigidbody RigidbodyComponent => rb;
     public CapsuleCollider CapsuleColliderComponent => col;
@@ -296,6 +423,10 @@ public sealed class RBCharacter25D : MonoBehaviour
     public bool UsesLockedZ => lockZ;
     public float LockedZPosition => lockedZ;
     public int VaultFacingSignFromInput => lastNonZeroInputX < 0f ? -1 : 1;
+    public int ResolvedFacingSign => facingResolver != null ? facingResolver.ResolvedFacingSign : VaultFacingSignFromInput;
+    public bool HasFacingOverride => facingResolver != null && facingResolver.HasFacingOverride;
+    public FacingOverrideSource25D CurrentFacingOverrideSource => facingResolver != null ? facingResolver.CurrentOverrideSource : FacingOverrideSource25D.None;
+    public CharacterFacingResolver25D FacingResolverComponent => facingResolver;
     public float MoveInputY => externalMoveY;
 
     private void Awake()
@@ -324,6 +455,26 @@ public sealed class RBCharacter25D : MonoBehaviour
         inputAcceleration = 8f;
         inputDeceleration = 12f;
 
+        reduceLandingReverseSkid = true;
+        landingReverseNoSkidWindow = 0.1f;
+        landingReverseCarryMultiplier = 0.35f;
+        landingReverseMinSpeed = 1.5f;
+
+        useAirShotPhysicsAssist = true;
+        normalizeAirShotRecoilAxes = true;
+        airShotSlowFallDuration = 0.07f;
+        airShotSlowFallGravityMultiplier = 0.25f;
+        airShotSlowFallMaxDownSpeed = 3.5f;
+        airShotUpwardThreshold = 0.35f;
+        airShotDownwardThreshold = 0.35f;
+        airShotFastFallDuration = 0.06f;
+        airShotFastFallGravityMultiplier = 1.8f;
+        airShotUpwardRiseCutMultiplier = 0.35f;
+        airShotHorizontalThreshold = 0.35f;
+        airShotHorizontalRecoilDuration = 0.07f;
+        airShotHorizontalRecoilDeceleration = 45f;
+        airShotHorizontalRecoilMaxSpeedTowardShot = 2f;
+
         enableSlopeHandling = true;
 
         int slopeLayer = LayerMask.NameToLayer("Slope");
@@ -333,6 +484,18 @@ public sealed class RBCharacter25D : MonoBehaviour
         slopeMinAngle = 1f;
         downhillSlideDeceleration = 30f;
         downhillSlideMinSpeed = 1f;
+        enableRunStopState = true;
+        runStopEnterSpeed = 2.2f;
+        runStopExitSpeed = 0.8f;
+        runStopRecentRunWindow = 0.18f;
+        runStopInputDeadzone = 0.1f;
+        runStopRunQualificationSpeedNormalized = 0.35f;
+        runStopSuppressAfterLandingWindow = 0.08f;
+        suppressRunStopWhileCrouching = true;
+        suppressRunStopWhileControlLocked = true;
+        suppressRunStopWhileLockStance = true;
+        suppressRunStopOnAuthorizedSlope = true;
+        requireNeutralMoveYForRunStop = false;
         stickToSlopeAfterVerticalJump = true;
         slopeLandingStickSpeed = 1.25f;
         freezeXWhenIdleOnSlope = true;
@@ -375,6 +538,10 @@ public sealed class RBCharacter25D : MonoBehaviour
         detachFromWallOnOppositeInput = true;
         wallDetachHoldTime = 0.3f;
         wallSlideSpeed = 2.5f;
+        enableFastWallSlideOnDownInput = true;
+        fastWallSlideDownInputThreshold = 0.5f;
+        fastWallSlideSpeed = 5.5f;
+        fastWallSlideAcceleration = 35f;
         allowWallSlideUpwardMomentum = true;
         wallUpwardDeceleration = 18f;
         wallJumpHorizontalSpeed = 12f;
@@ -432,6 +599,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         TryApplyPendingVaultExitVelocityRestore();
         ApplyExtraGravity();
+        ApplyAirShotVelocityAssist();
 
         if (!enableDoubleJumpSpeedBoost)
             state.IsDoubleJumpSpeedBoostActive = false;
@@ -468,6 +636,10 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (!startedOneWayDropDown && !IsLockStanceGroundActive && !IsVaultStartSuppressed() && vaulting != null && vaulting.TryStartVault())
         {
             currentHorizontalSpeedAbs = 0f;
+            isSlopeSlidingNow = false;
+            slopeSlideSpeedNormalized = 0f;
+            isRunStoppingNow = false;
+            runStopSpeedNormalized = 0f;
             state.WasGroundedLastFixed = false;
             return;
         }
@@ -502,6 +674,10 @@ public sealed class RBCharacter25D : MonoBehaviour
             return false;
 
         vaulting.StepActiveVault();
+        isSlopeSlidingNow = false;
+        slopeSlideSpeedNormalized = 0f;
+        isRunStoppingNow = false;
+        runStopSpeedNormalized = 0f;
         state.WasGroundedLastFixed = false;
         return true;
     }
@@ -511,6 +687,11 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (col == null) col = GetComponent<CapsuleCollider>();
         if (vaulting == null) vaulting = GetComponent<RBCharacter25DVaulting>();
+        if (facingResolver == null) facingResolver = GetComponent<CharacterFacingResolver25D>();
+        if (facingResolver == null && Application.isPlaying)
+            facingResolver = gameObject.AddComponent<CharacterFacingResolver25D>();
+        if (crouchController == null) crouchController = GetComponent<CharacterCrouch25D>();
+        if (controlLock == null) controlLock = GetComponent<PlayerControlLock25D>();
         if (oneWayPlatformController == null) oneWayPlatformController = GetComponent<OneWayPlatformController>();
     }
 
@@ -569,6 +750,11 @@ public sealed class RBCharacter25D : MonoBehaviour
         externalHorizontalLocomotionSuppressUntilTime = InvalidPastTime;
         smoothedInputX = 0f;
         currentHorizontalSpeedAbs = 0f;
+        isSlopeSlidingNow = false;
+        slopeSlideSpeedNormalized = 0f;
+        isRunStoppingNow = false;
+        runStopSpeedNormalized = 0f;
+        lastGroundRunTime = InvalidPastTime;
         pendingVaultExitVelocityX = 0f;
         hasPendingVaultExitVelocityRestore = false;
         vaultExitVelocityRestoreReadyTime = InvalidPastTime;
@@ -577,6 +763,19 @@ public sealed class RBCharacter25D : MonoBehaviour
         externalJumpHeld = false;
         externalJumpPressedQueued = false;
         externalJumpReleasedQueued = false;
+        airShotSlowFallUntilTime = InvalidPastTime;
+        airShotFastFallUntilTime = InvalidPastTime;
+        airShotHorizontalRecoilUntilTime = InvalidPastTime;
+        airShotSlowFallWeight = 0f;
+        airShotFastFallWeight = 0f;
+        airShotHorizontalRecoilWeight = 0f;
+        airShotHorizontalShotSign = 0;
+
+        if (facingResolver != null)
+        {
+            facingResolver.ClearAllOverrides();
+            facingResolver.SetBaseFacingSign(VaultFacingSignFromInput);
+        }
 
         RecalculateRuntimeSettings();
         ResetJumpCounter();
@@ -607,10 +806,32 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         inputAcceleration = Mathf.Max(0f, inputAcceleration);
         inputDeceleration = Mathf.Max(0f, inputDeceleration);
+        landingReverseNoSkidWindow = Mathf.Max(0f, landingReverseNoSkidWindow);
+        landingReverseCarryMultiplier = Mathf.Clamp01(landingReverseCarryMultiplier);
+        landingReverseMinSpeed = Mathf.Max(0f, landingReverseMinSpeed);
+
+        airShotSlowFallDuration = Mathf.Max(0f, airShotSlowFallDuration);
+        airShotSlowFallGravityMultiplier = Mathf.Clamp01(airShotSlowFallGravityMultiplier);
+        airShotSlowFallMaxDownSpeed = Mathf.Max(0f, airShotSlowFallMaxDownSpeed);
+        airShotUpwardThreshold = Mathf.Clamp01(airShotUpwardThreshold);
+        airShotDownwardThreshold = Mathf.Clamp01(airShotDownwardThreshold);
+        airShotFastFallDuration = Mathf.Max(0f, airShotFastFallDuration);
+        airShotFastFallGravityMultiplier = Mathf.Max(0f, airShotFastFallGravityMultiplier);
+        airShotUpwardRiseCutMultiplier = Mathf.Clamp01(airShotUpwardRiseCutMultiplier);
+        airShotHorizontalThreshold = Mathf.Clamp01(airShotHorizontalThreshold);
+        airShotHorizontalRecoilDuration = Mathf.Max(0f, airShotHorizontalRecoilDuration);
+        airShotHorizontalRecoilDeceleration = Mathf.Max(0f, airShotHorizontalRecoilDeceleration);
+        airShotHorizontalRecoilMaxSpeedTowardShot = Mathf.Max(0f, airShotHorizontalRecoilMaxSpeedTowardShot);
 
         slopeMinAngle = Mathf.Clamp(slopeMinAngle, 0f, 89f);
         downhillSlideDeceleration = Mathf.Max(0f, downhillSlideDeceleration);
         downhillSlideMinSpeed = Mathf.Max(0f, downhillSlideMinSpeed);
+        runStopEnterSpeed = Mathf.Max(0f, runStopEnterSpeed);
+        runStopExitSpeed = Mathf.Clamp(runStopExitSpeed, 0f, runStopEnterSpeed);
+        runStopRecentRunWindow = Mathf.Max(0f, runStopRecentRunWindow);
+        runStopInputDeadzone = Mathf.Clamp01(runStopInputDeadzone);
+        runStopRunQualificationSpeedNormalized = Mathf.Clamp01(runStopRunQualificationSpeedNormalized);
+        runStopSuppressAfterLandingWindow = Mathf.Max(0f, runStopSuppressAfterLandingWindow);
         slopeLandingStickSpeed = Mathf.Max(0f, slopeLandingStickSpeed);
         slopeIdleLockSpeed = Mathf.Max(0f, slopeIdleLockSpeed);
         slopeLandingLockTime = Mathf.Max(0f, slopeLandingLockTime);
@@ -630,7 +851,10 @@ public sealed class RBCharacter25D : MonoBehaviour
         wallCheckRadius = Mathf.Max(0.001f, wallCheckRadius);
         wallDetachHoldTime = Mathf.Max(0f, wallDetachHoldTime);
         wallDetachOppositeInputThreshold = Mathf.Clamp01(wallDetachOppositeInputThreshold);
+        fastWallSlideDownInputThreshold = Mathf.Clamp01(fastWallSlideDownInputThreshold);
         wallSlideSpeed = Mathf.Max(0f, wallSlideSpeed);
+        fastWallSlideSpeed = Mathf.Max(wallSlideSpeed, fastWallSlideSpeed);
+        fastWallSlideAcceleration = Mathf.Max(0f, fastWallSlideAcceleration);
         wallUpwardDeceleration = Mathf.Max(0f, wallUpwardDeceleration);
         wallJumpHorizontalSpeed = Mathf.Max(0f, wallJumpHorizontalSpeed);
         wallJumpVerticalSpeed = Mathf.Max(0f, wallJumpVerticalSpeed);
@@ -659,7 +883,11 @@ public sealed class RBCharacter25D : MonoBehaviour
         inputX = (IsLockStanceMovementActive || suppressHorizontalLocomotion) ? 0f : externalMoveX;
 
         if (Mathf.Abs(inputX) > InputEpsilon)
+        {
             lastNonZeroInputX = Mathf.Sign(inputX);
+            if (facingResolver != null)
+                facingResolver.SetBaseFacingSign((int)Mathf.Sign(inputX));
+        }
 
         if (IsVaultingNow)
         {
@@ -983,6 +1211,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
             if (justLandedThisFixed)
             {
+                RecordLandingEvent();
                 HandleLandingAfterAirborneState();
                 ResetJumpCounter();
                 ClampLandingVerticalVelocity();
@@ -1004,7 +1233,34 @@ public sealed class RBCharacter25D : MonoBehaviour
         state.IsDoubleJumpSpeedBoostActive = false;
         state.UsedDoubleJumpSinceLastGrounded = false;
         ClearLastSelfJumpState();
+        ClearAirShotPhysicsAssistWindows();
+    }
 
+    private void RecordLandingEvent()
+    {
+        LastLandingStateVersion++;
+        LastLandingTime = Time.time;
+    }
+
+    private bool IsLandingReverseAntiSkidActive(float rawInputX, Vector3 velocity, SurfaceContacts25D contacts, bool justLanded)
+    {
+        if (!reduceLandingReverseSkid)
+            return false;
+        if (!state.IsGrounded)
+            return false;
+        if (Mathf.Abs(rawInputX) <= InputEpsilon)
+            return false;
+
+        bool insideWindow = justLanded ||
+            (LastLandingTime > InvalidPastTime && (Time.time - LastLandingTime) <= landingReverseNoSkidWindow);
+        if (!insideWindow)
+            return false;
+
+        float planarSpeed = GetCurrentPlanarSpeed(velocity, contacts, justLanded);
+        if (Mathf.Abs(planarSpeed) < landingReverseMinSpeed)
+            return false;
+
+        return Mathf.Sign(rawInputX) != Mathf.Sign(planarSpeed);
     }
 
     private void ApplyJumpCooldownAfterDoubleJumpLandingIfNeeded()
@@ -1058,6 +1314,15 @@ public sealed class RBCharacter25D : MonoBehaviour
         }
 
         float desiredInput = inputX;
+        bool landingReverse = IsLandingReverseAntiSkidActive(desiredInput, rb != null ? rb.linearVelocity : Vector3.zero, lastContacts, justLanded: false);
+
+        if (landingReverse &&
+            Mathf.Abs(smoothedInputX) > InputEpsilon &&
+            Mathf.Sign(smoothedInputX) != Mathf.Sign(desiredInput))
+        {
+            smoothedInputX = 0f;
+        }
+
         float rampSpeed = Mathf.Abs(desiredInput) > Mathf.Abs(smoothedInputX)
             ? inputAcceleration
             : inputDeceleration;
@@ -1068,12 +1333,73 @@ public sealed class RBCharacter25D : MonoBehaviour
             Mathf.Sign(desiredInput) != Mathf.Sign(smoothedInputX);
 
         if (directionChanged)
-            rampSpeed = inputDeceleration;
+            rampSpeed = landingReverse ? inputAcceleration : inputDeceleration;
 
         smoothedInputX = Mathf.MoveTowards(
             smoothedInputX,
             desiredInput,
             rampSpeed * Time.fixedDeltaTime);
+    }
+
+    private void UpdateGroundRunStopState(FrameInput25D input, SurfaceContacts25D contacts, bool justLandedThisFixed, float currentPlanarSpeed, bool noRawInput)
+    {
+        bool isAuthorizedSlopeSurface = contacts.OnSlope && contacts.IsSlopeSurfaceAuthorized;
+        bool isFlatGround = state.IsGrounded && (!suppressRunStopOnAuthorizedSlope || !isAuthorizedSlopeSurface);
+        bool isCrouching = crouchController != null && crouchController.IsCrouching;
+        bool isControlLocked = controlLock != null && controlLock.IsControlLocked;
+        bool suppressForYInput = requireNeutralMoveYForRunStop && Mathf.Abs(input.RawY) > runStopInputDeadzone;
+        float planarSpeedAbs = Mathf.Abs(currentPlanarSpeed);
+        float runQualificationSpeed = Mathf.Max(runStopEnterSpeed, GetEffectiveMoveSpeed() * runStopRunQualificationSpeedNormalized);
+
+        bool isQualifiedGroundRun =
+            isFlatGround &&
+            !state.IsWallSliding &&
+            !IsVaultingNow &&
+            Mathf.Abs(input.RawX) > runStopInputDeadzone &&
+            (!suppressRunStopWhileCrouching || !isCrouching) &&
+            (!suppressRunStopWhileControlLocked || !isControlLocked) &&
+            (!suppressRunStopWhileLockStance || !IsLockStanceMovementActive) &&
+            planarSpeedAbs >= runQualificationSpeed;
+
+        if (isQualifiedGroundRun)
+            lastGroundRunTime = Time.time;
+
+        bool hadRecentGroundRun =
+            lastGroundRunTime > InvalidPastTime &&
+            (Time.time - lastGroundRunTime) <= runStopRecentRunWindow;
+
+        bool suppressedAfterLanding =
+            justLandedThisFixed ||
+            (LastLandingTime > InvalidPastTime && (Time.time - LastLandingTime) <= runStopSuppressAfterLandingWindow);
+
+        bool canBeRunStop =
+            enableRunStopState &&
+            isFlatGround &&
+            noRawInput &&
+            !state.IsWallSliding &&
+            !IsVaultingNow &&
+            hadRecentGroundRun &&
+            !suppressedAfterLanding &&
+            (!suppressRunStopWhileCrouching || !isCrouching) &&
+            (!suppressRunStopWhileControlLocked || !isControlLocked) &&
+            (!suppressRunStopWhileLockStance || !IsLockStanceMovementActive) &&
+            !suppressForYInput;
+
+        if (canBeRunStop)
+        {
+            if (isRunStoppingNow)
+                isRunStoppingNow = planarSpeedAbs > runStopExitSpeed;
+            else
+                isRunStoppingNow = planarSpeedAbs >= runStopEnterSpeed;
+        }
+        else
+        {
+            isRunStoppingNow = false;
+        }
+
+        runStopSpeedNormalized = isRunStoppingNow
+            ? Mathf.Clamp01(Mathf.InverseLerp(runStopExitSpeed, Mathf.Max(runStopExitSpeed + DotEpsilon, GetEffectiveMoveSpeed()), planarSpeedAbs))
+            : 0f;
     }
 
     private VelocityCommand25D BuildVelocityCommand(FrameInput25D input, SurfaceContacts25D contacts, bool justLandedThisFixed)
@@ -1098,6 +1424,9 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         float currentPlanarSpeed = GetCurrentPlanarSpeed(command.TargetVelocity, contacts, justLandedThisFixed);
 
+        if (IsLandingReverseAntiSkidActive(input.RawX, command.TargetVelocity, contacts, justLandedThisFixed))
+            currentPlanarSpeed *= landingReverseCarryMultiplier;
+
         if (justLandedThisFixed)
         {
             TryStartSlopeLandingLock(contacts, currentPlanarSpeed);
@@ -1111,7 +1440,25 @@ public sealed class RBCharacter25D : MonoBehaviour
         float targetPlanarSpeed = lockStanceMovementActive
             ? 0f
             : (suppressHorizontalLocomotion ? currentPlanarSpeed : BuildTargetHorizontalSpeed(input, contacts));
+        ApplyAirShotHorizontalTargetConstraint(ref targetPlanarSpeed);
         float downhillSignedSpeed = contacts.OnSlope ? currentPlanarSpeed * contacts.DownhillSign : 0f;
+        bool isSlopeSlidingNowThisFrame =
+            state.IsGrounded &&
+            contacts.OnSlope &&
+            contacts.IsSlopeSurfaceAuthorized &&
+            noRawInput &&
+            !IsSlopeLandingLockActive() &&
+            downhillSignedSpeed > downhillSlideMinSpeed;
+
+        isSlopeSlidingNow = isSlopeSlidingNowThisFrame;
+        slopeSlideSpeedNormalized = isSlopeSlidingNowThisFrame
+            ? Mathf.InverseLerp(
+                downhillSlideMinSpeed,
+                Mathf.Max(downhillSlideMinSpeed + DotEpsilon, GetEffectiveMoveSpeed()),
+                downhillSignedSpeed)
+            : 0f;
+
+        UpdateGroundRunStopState(input, contacts, justLandedThisFixed, currentPlanarSpeed, noRawInput);
 
         bool shouldLockSlopeX = !suppressHorizontalLocomotion && ShouldLockSlopeX(contacts, noRawInput, currentPlanarSpeed, downhillSignedSpeed) && !IsJumpBuffered();
         UpdateSlopeXConstraint(shouldLockSlopeX);
@@ -1128,6 +1475,7 @@ public sealed class RBCharacter25D : MonoBehaviour
                     contacts.BlockedLeft,
                     contacts.BlockedRight,
                     contacts.OnSlope));
+        ApplyAirShotHorizontalResolvedDamping(ref resolvedPlanarSpeed);
 
         if (suppressHorizontalLocomotion)
         {
@@ -1270,6 +1618,10 @@ public sealed class RBCharacter25D : MonoBehaviour
             return;
 
         float newY = command.OverrideY ? command.TargetVelocity.y : rb.linearVelocity.y;
+        bool wantsFastWallSlide =
+            enableFastWallSlideOnDownInput &&
+            !IsLockStanceHeld &&
+            externalMoveY <= -fastWallSlideDownInputThreshold;
 
         if (newY > 0f)
         {
@@ -1279,8 +1631,12 @@ public sealed class RBCharacter25D : MonoBehaviour
                 newY = 0f;
         }
 
-        if (newY < -wallSlideSpeed)
-            newY = -wallSlideSpeed;
+        if (wantsFastWallSlide)
+            newY = Mathf.MoveTowards(newY, -fastWallSlideSpeed, fastWallSlideAcceleration * Time.fixedDeltaTime);
+
+        float targetWallSlideSpeed = wantsFastWallSlide ? fastWallSlideSpeed : wallSlideSpeed;
+        if (newY < -targetWallSlideSpeed)
+            newY = -targetWallSlideSpeed;
 
         command.TargetVelocity.x = 0f;
         command.TargetVelocity.y = newY;
@@ -1300,9 +1656,12 @@ public sealed class RBCharacter25D : MonoBehaviour
         int jumpedFromWallSide = state.WallSlideSide;
         float jumpDirectionX = jumpedFromWallSide == WallSideLeft ? 1f : -1f;
 
-        // После wall jump fallback-facing для стрельбы/aim должен
-        // смотреть в сторону отталкивания, а не оставаться направленным в стену.
-        lastNonZeroInputX = Mathf.Sign(jumpDirectionX);
+        // После wall jump fallback-facing для стрельбы/aim и визуальный facing
+        // должны смотреть в сторону отталкивания, а не откатываться к pre-wall facing.
+        int wallJumpFacingSign = jumpDirectionX >= 0f ? 1 : -1;
+        lastNonZeroInputX = wallJumpFacingSign;
+        if (facingResolver != null)
+            facingResolver.SetBaseFacingSign(wallJumpFacingSign);
 
         state.PendingSlopeStickAfterJump = false;
         state.SlopeLockUntilTime = InvalidPastTime;
@@ -1572,9 +1931,11 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private float GetEffectiveGravityScale()
     {
-        return autoTuneJump
+        float baseGravityScale = autoTuneJump
             ? runtimeGravityScale
             : Mathf.Max(0f, manualGravityScale);
+
+        return baseGravityScale * GetAirShotGravityMultiplier();
     }
 
     private void ApplyExtraGravity()
@@ -1586,6 +1947,205 @@ public sealed class RBCharacter25D : MonoBehaviour
             return;
 
         rb.AddForce(Physics.gravity * extraScale, ForceMode.Acceleration);
+    }
+
+    private float GetAirShotGravityMultiplier()
+    {
+        if (!useAirShotPhysicsAssist || rb == null || rb.isKinematic)
+            return 1f;
+        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow)
+            return 1f;
+
+        if (IsAirShotFastFallActive())
+            return Mathf.Lerp(1f, airShotFastFallGravityMultiplier, Mathf.Clamp01(airShotFastFallWeight));
+
+        if (IsAirShotSlowFallActive() && rb.linearVelocity.y < -SpeedEpsilon)
+            return Mathf.Lerp(1f, airShotSlowFallGravityMultiplier, Mathf.Clamp01(airShotSlowFallWeight));
+
+        return 1f;
+    }
+
+    private void ApplyAirShotVelocityAssist()
+    {
+        if (!useAirShotPhysicsAssist || rb == null || rb.isKinematic)
+            return;
+
+        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow)
+        {
+            ClearAirShotPhysicsAssistWindows();
+            return;
+        }
+
+        if (!IsAirShotSlowFallActive())
+            return;
+
+        Vector3 velocity = rb.linearVelocity;
+        float maxDownSpeed = Mathf.Max(0f, airShotSlowFallMaxDownSpeed);
+        if (maxDownSpeed <= 0f)
+            return;
+
+        float slowFallWeight = Mathf.Clamp01(airShotSlowFallWeight);
+        float unrestrictedDownSpeed = Mathf.Max(maxDownSpeed, 20f);
+        float weightedMaxDownSpeed = Mathf.Lerp(unrestrictedDownSpeed, maxDownSpeed, slowFallWeight);
+        if (velocity.y < -weightedMaxDownSpeed)
+        {
+            velocity.y = -weightedMaxDownSpeed;
+            rb.linearVelocity = velocity;
+        }
+    }
+
+    private bool IsAirShotSlowFallActive()
+    {
+        return airShotSlowFallUntilTime > InvalidPastTime && Time.time < airShotSlowFallUntilTime;
+    }
+
+    private bool IsAirShotFastFallActive()
+    {
+        return airShotFastFallUntilTime > InvalidPastTime && Time.time < airShotFastFallUntilTime;
+    }
+
+    private bool IsAirShotHorizontalRecoilActive()
+    {
+        return airShotHorizontalRecoilUntilTime > InvalidPastTime && Time.time < airShotHorizontalRecoilUntilTime;
+    }
+
+    private void ClearAirShotPhysicsAssistWindows()
+    {
+        airShotSlowFallUntilTime = InvalidPastTime;
+        airShotFastFallUntilTime = InvalidPastTime;
+        airShotHorizontalRecoilUntilTime = InvalidPastTime;
+        airShotSlowFallWeight = 0f;
+        airShotFastFallWeight = 0f;
+        airShotHorizontalRecoilWeight = 0f;
+        airShotHorizontalShotSign = 0;
+    }
+
+    private bool TryGetActiveAirShotHorizontalRecoil(out int shotSign, out float weight)
+    {
+        shotSign = 0;
+        weight = 0f;
+
+        if (!useAirShotPhysicsAssist || rb == null || rb.isKinematic)
+            return false;
+        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow)
+            return false;
+        if (!IsAirShotHorizontalRecoilActive())
+            return false;
+        if (airShotHorizontalShotSign == 0)
+            return false;
+
+        shotSign = airShotHorizontalShotSign;
+        weight = Mathf.Clamp01(airShotHorizontalRecoilWeight);
+        return weight > 0f;
+    }
+
+    private void ApplyAirShotHorizontalTargetConstraint(ref float targetPlanarSpeed)
+    {
+        if (!TryGetActiveAirShotHorizontalRecoil(out int shotSign, out float weight))
+            return;
+        if (Mathf.Abs(targetPlanarSpeed) <= SpeedEpsilon || Mathf.Sign(targetPlanarSpeed) != shotSign)
+            return;
+
+        float maxTowardShotSpeed = Mathf.Lerp(GetEffectiveMoveSpeed(), airShotHorizontalRecoilMaxSpeedTowardShot, weight);
+        maxTowardShotSpeed = Mathf.Max(0f, maxTowardShotSpeed);
+
+        if (shotSign > 0)
+            targetPlanarSpeed = Mathf.Min(targetPlanarSpeed, maxTowardShotSpeed);
+        else
+            targetPlanarSpeed = Mathf.Max(targetPlanarSpeed, -maxTowardShotSpeed);
+    }
+
+    private void ApplyAirShotHorizontalResolvedDamping(ref float resolvedPlanarSpeed)
+    {
+        if (!TryGetActiveAirShotHorizontalRecoil(out int shotSign, out float weight))
+            return;
+        if (Mathf.Abs(resolvedPlanarSpeed) <= SpeedEpsilon || Mathf.Sign(resolvedPlanarSpeed) != shotSign)
+            return;
+
+        float horizontalDeceleration = airShotHorizontalRecoilDeceleration * weight;
+        if (horizontalDeceleration > 0f)
+            resolvedPlanarSpeed = Mathf.MoveTowards(resolvedPlanarSpeed, 0f, horizontalDeceleration * Time.fixedDeltaTime);
+
+        float maxTowardShotSpeed = Mathf.Lerp(GetEffectiveMoveSpeed(), airShotHorizontalRecoilMaxSpeedTowardShot, weight);
+        maxTowardShotSpeed = Mathf.Max(0f, maxTowardShotSpeed);
+
+        if (shotSign > 0)
+            resolvedPlanarSpeed = Mathf.Min(resolvedPlanarSpeed, maxTowardShotSpeed);
+        else
+            resolvedPlanarSpeed = Mathf.Max(resolvedPlanarSpeed, -maxTowardShotSpeed);
+    }
+
+    public void NotifyAirShotPhysics(Vector3 shotDirection)
+    {
+        if (!useAirShotPhysicsAssist || rb == null || rb.isKinematic)
+            return;
+        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow)
+            return;
+
+        shotDirection.z = 0f;
+        if (shotDirection.sqrMagnitude <= 0.0001f)
+            shotDirection = new Vector3(VaultFacingSignFromInput, 0f, 0f);
+
+        Vector3 axisDirection = normalizeAirShotRecoilAxes
+            ? shotDirection.normalized
+            : new Vector3(Mathf.Clamp(shotDirection.x, -1f, 1f), Mathf.Clamp(shotDirection.y, -1f, 1f), 0f);
+
+        Vector3 velocity = rb.linearVelocity;
+        float upwardWeight = axisDirection.y > airShotUpwardThreshold
+            ? Mathf.InverseLerp(airShotUpwardThreshold, 1f, axisDirection.y)
+            : 0f;
+        float downwardWeight = axisDirection.y < -airShotDownwardThreshold
+            ? Mathf.InverseLerp(airShotDownwardThreshold, 1f, -axisDirection.y)
+            : 0f;
+        float horizontalWeight = Mathf.Abs(axisDirection.x) > airShotHorizontalThreshold
+            ? Mathf.InverseLerp(airShotHorizontalThreshold, 1f, Mathf.Abs(axisDirection.x))
+            : 0f;
+
+        if (upwardWeight > 0f)
+        {
+            airShotSlowFallUntilTime = InvalidPastTime;
+            airShotSlowFallWeight = 0f;
+            airShotFastFallUntilTime = airShotFastFallDuration > 0f
+                ? Time.time + airShotFastFallDuration
+                : InvalidPastTime;
+            airShotFastFallWeight = upwardWeight;
+
+            if (velocity.y > 0f)
+            {
+                float weightedRiseCutMultiplier = Mathf.Lerp(1f, airShotUpwardRiseCutMultiplier, upwardWeight);
+                velocity.y *= weightedRiseCutMultiplier;
+                rb.linearVelocity = velocity;
+            }
+        }
+        else
+        {
+            airShotFastFallUntilTime = InvalidPastTime;
+            airShotFastFallWeight = 0f;
+
+            if (airShotSlowFallDuration > 0f && downwardWeight > 0f)
+            {
+                airShotSlowFallUntilTime = Time.time + airShotSlowFallDuration;
+                airShotSlowFallWeight = downwardWeight;
+            }
+            else
+            {
+                airShotSlowFallUntilTime = InvalidPastTime;
+                airShotSlowFallWeight = 0f;
+            }
+        }
+
+        if (airShotHorizontalRecoilDuration > 0f && horizontalWeight > 0f)
+        {
+            airShotHorizontalRecoilUntilTime = Time.time + airShotHorizontalRecoilDuration;
+            airShotHorizontalRecoilWeight = horizontalWeight;
+            airShotHorizontalShotSign = axisDirection.x >= 0f ? WallSideRight : WallSideLeft;
+        }
+        else
+        {
+            airShotHorizontalRecoilUntilTime = InvalidPastTime;
+            airShotHorizontalRecoilWeight = 0f;
+            airShotHorizontalShotSign = 0;
+        }
     }
 
     private float GetTakeoffSpeedFromImpulse(float impulse)
@@ -1755,6 +2315,9 @@ public sealed class RBCharacter25D : MonoBehaviour
         state.IsWallSliding = true;
         state.WallSlideSide = side;
         state.WallDetachHoldTimer = 0f;
+
+        if (facingResolver != null)
+            facingResolver.SetWallSlideOverride(side < 0 ? +1 : -1);
     }
 
     private void ClearWallSlideState()
@@ -1764,6 +2327,9 @@ public sealed class RBCharacter25D : MonoBehaviour
         state.IsWallSliding = false;
         state.WallSlideSide = WallSideNone;
         state.WallDetachHoldTimer = 0f;
+
+        if (facingResolver != null)
+            facingResolver.ClearWallSlideOverride();
 
         if (wasWallSliding)
             LastWallSlideFinishedTime = Time.time;
@@ -1781,10 +2347,15 @@ public sealed class RBCharacter25D : MonoBehaviour
     public void NotifyVaultStarted()
     {
         float preVaultVelocityX = rb != null ? rb.linearVelocity.x : 0f;
-        NotifyVaultStarted(preVaultVelocityX);
+        NotifyVaultStarted(preVaultVelocityX, VaultFacingSignFromInput);
     }
 
     public void NotifyVaultStarted(float preVaultVelocityX)
+    {
+        NotifyVaultStarted(preVaultVelocityX, VaultFacingSignFromInput);
+    }
+
+    public void NotifyVaultStarted(float preVaultVelocityX, int vaultFacingSign)
     {
         state.PendingSlopeStickAfterJump = false;
         state.SlopeLockUntilTime = InvalidPastTime;
@@ -1792,6 +2363,8 @@ public sealed class RBCharacter25D : MonoBehaviour
         state.LastJumpPressedTime = InvalidPastTime;
         smoothedInputX = 0f;
         currentHorizontalSpeedAbs = 0f;
+        isRunStoppingNow = false;
+        runStopSpeedNormalized = 0f;
 
         hasPendingVaultExitVelocityRestore =
             preserveHorizontalSpeedAfterVault &&
@@ -1801,7 +2374,14 @@ public sealed class RBCharacter25D : MonoBehaviour
             : 0f;
         vaultExitVelocityRestoreReadyTime = InvalidPastTime;
 
+        if (facingResolver != null)
+            facingResolver.SetBaseFacingSign(vaultFacingSign);
+
         ClearWallSlideState();
+
+        if (facingResolver != null)
+            facingResolver.SetVaultOverride(vaultFacingSign);
+
         ClearLastSelfJumpState();
         UpdateSlopeXConstraint(false);
 
@@ -1828,6 +2408,10 @@ public sealed class RBCharacter25D : MonoBehaviour
         ClearDoubleJumpRuntimeState();
         ClearLastSelfJumpState();
         ClearWallSlideState();
+
+        if (facingResolver != null)
+            facingResolver.ClearVaultOverride();
+
         UpdateSlopeXConstraint(false);
 
         bool shouldRestoreVelocity = hasPendingVaultExitVelocityRestore;
@@ -1847,6 +2431,8 @@ public sealed class RBCharacter25D : MonoBehaviour
             vaultExitVelocityRestoreReadyTime = InvalidPastTime;
             smoothedInputX = 0f;
             currentHorizontalSpeedAbs = 0f;
+            isRunStoppingNow = false;
+            runStopSpeedNormalized = 0f;
             LastVaultFinishedTime = Time.time;
             return;
         }
@@ -1917,6 +2503,8 @@ public sealed class RBCharacter25D : MonoBehaviour
         {
             smoothedInputX = 0f;
             currentHorizontalSpeedAbs = 0f;
+            isRunStoppingNow = false;
+            runStopSpeedNormalized = 0f;
         }
 
         pendingVaultExitVelocityX = 0f;

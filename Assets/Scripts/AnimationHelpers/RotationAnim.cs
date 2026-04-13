@@ -4,6 +4,7 @@ public class RotationAnim : MonoBehaviour
 {
     [SerializeField] private RBCharacter25DPlayerInput playerInput;
     [SerializeField] private RBCharacter25D character;
+    [SerializeField] private CharacterFacingResolver25D facingResolver;
     [SerializeField] private float lockStanceRotationFinishEpsilon = 0.25f;
 
     public float leftYaw = 135f;
@@ -27,6 +28,9 @@ public class RotationAnim : MonoBehaviour
 
         if (character == null)
             character = GetComponent<RBCharacter25D>();
+
+        if (facingResolver == null)
+            facingResolver = GetComponent<CharacterFacingResolver25D>();
     }
 
     private void OnValidate()
@@ -36,26 +40,32 @@ public class RotationAnim : MonoBehaviour
 
         if (character == null)
             character = GetComponent<RBCharacter25D>();
+
+        if (facingResolver == null)
+            facingResolver = GetComponent<CharacterFacingResolver25D>();
     }
 
     private void Update()
     {
-        bool forcedWallSlideFacing = TryGetWallSlideFacingSign(out int wallSlideFacingSign);
-        bool rotationBlockedByLockStance =
-            !forcedWallSlideFacing &&
-            character != null && character.IsLockStanceMovementActive;
-
-        if (forcedWallSlideFacing)
+        if (facingResolver == null)
         {
-            inputX = 0f;
-            HasMoveInput = false;
-            ApplyFacingSign(wallSlideFacingSign);
+            facingResolver = character != null ? character.FacingResolverComponent : null;
+            if (facingResolver == null)
+                facingResolver = GetComponent<CharacterFacingResolver25D>();
+        }
+
+        inputX = playerInput != null ? playerInput.CurrentMoveX : 0f;
+        HasMoveInput = Mathf.Abs(inputX) > 0.01f;
+
+        bool rotationBlockedByLockStance = character != null && character.IsLockStanceMovementActive;
+        bool hasResolvedFacing = facingResolver != null;
+
+        if (hasResolvedFacing)
+        {
+            ApplyFacingSign(facingResolver.ResolvedFacingSign);
         }
         else if (!rotationBlockedByLockStance)
         {
-            inputX = playerInput != null ? playerInput.CurrentMoveX : 0f;
-            HasMoveInput = Mathf.Abs(inputX) > 0.01f;
-
             if (inputX < -0.01f)
                 ApplyFacingSign(-1);
             else if (inputX > 0.01f)
@@ -85,25 +95,4 @@ public class RotationAnim : MonoBehaviour
         desiredRotation = Quaternion.Euler(0f, FacingSign >= 0 ? rightYaw : leftYaw, 0f);
     }
 
-    private bool TryGetWallSlideFacingSign(out int facingSign)
-    {
-        facingSign = +1;
-
-        if (character == null || !character.IsWallSliding)
-            return false;
-
-        if (character.WallSlideSide < 0)
-        {
-            facingSign = +1;
-            return true;
-        }
-
-        if (character.WallSlideSide > 0)
-        {
-            facingSign = -1;
-            return true;
-        }
-
-        return false;
-    }
 }

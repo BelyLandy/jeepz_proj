@@ -8,6 +8,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private RBCharacter25D character;
+    [SerializeField] private CharacterFacingResolver25D facingResolver;
     [SerializeField] private PlayerInput playerInput;
     [SerializeField] private PlayerControlLock25D controlLock;
     [SerializeField] private CharacterCrouch25D crouch;
@@ -40,6 +41,10 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     [Header("Movement Shot Fade")]
     [Tooltip("Вне LockStance после выстрела активная рука уходит из 1 в 0 за это время.")]
     [SerializeField] private float movementShotFadeOutTime = 0.22f;
+
+    [Header("Crouch Shot")]
+    [Tooltip("Если герой сидит на авторизованном slope и смотрит вверх по склону, crouch-shot без LockStance будет идти вдоль подъёма склона.")]
+    [SerializeField] private bool enableSlopeAdjustedCrouchShot = true;
 
     [Header("Hand Switching")]
     [Tooltip("Какая рука считается передней, когда герой смотрит вправо. При взгляде влево логика зеркалится автоматически.")]
@@ -121,6 +126,8 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (character == null)
             character = GetComponent<RBCharacter25D>();
 
+        CacheFacingResolver();
+
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
 
@@ -139,6 +146,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (character == null)
             character = GetComponent<RBCharacter25D>();
 
+        CacheFacingResolver();
         ResetNeckAlternateHandConstraint();
 
         if (playerInput == null)
@@ -166,8 +174,12 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (character == null)
             character = GetComponent<RBCharacter25D>();
 
+        CacheFacingResolver();
+
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
+
+        CacheFacingResolver();
 
         if (controlLock == null)
             controlLock = GetComponent<PlayerControlLock25D>();
@@ -268,18 +280,14 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         bool isControlLocked = controlLock != null && controlLock.IsControlLocked;
         bool isLockStance = character != null && character.IsLockStanceMovementActive;
         bool isCrouching = crouch != null && crouch.IsCrouching;
-        bool shouldForceCrouchForwardAim = isCrouching && !isLockStance;
+        bool suppressVisualAimWhileCrouching = isCrouching && !isLockStance;
 
         Vector2 moveAim = Vector2.zero;
-        bool hasMoveAim = !isControlLocked && !shouldForceCrouchForwardAim && TryGetRawMoveAim(out moveAim);
+        bool hasMoveAim = !isControlLocked && !suppressVisualAimWhileCrouching && TryGetRawMoveAim(out moveAim);
         bool isLockStanceAimActive = isLockStance && hasMoveAim;
 
         Vector3 aimDirection;
-        if (shouldForceCrouchForwardAim)
-        {
-            aimDirection = GetFallbackShotDirection();
-        }
-        else if (hasMoveAim)
+        if (hasMoveAim)
         {
             aimDirection = new Vector3(moveAim.x, moveAim.y, 0f).normalized;
         }
@@ -304,7 +312,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         heldShotDirection = aimDirection;
 
         UpdatePrimaryVisibleWeight(isLockStance, isLockStanceAimActive);
-        bool hasExplicitHeadAim = isLockStanceAimActive || hasMoveAim || shouldForceCrouchForwardAim;
+        bool hasExplicitHeadAim = isLockStanceAimActive || hasMoveAim;
         ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, hasExplicitHeadAim, isControlLocked, isLockStance, isLockStanceAimActive);
     }
 
@@ -313,7 +321,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (shotDirection.sqrMagnitude <= 0.0001f)
             shotDirection = GetFallbackShotDirection();
 
-        shotDirection = ResolveDirectionForCurrentState(shotDirection);
+        shotDirection = ResolveShotDirectionForCurrentState(shotDirection);
 
         EvaluateHandForDirection(shotDirection, true);
 
@@ -347,7 +355,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     public bool EvaluateHandForDirection(Vector3 direction, bool updateState)
     {
-        direction = ResolveDirectionForCurrentState(direction);
+        direction = ResolveShotDirectionForCurrentState(direction);
 
         Vector2 aimDirection = new Vector2(direction.x, direction.y);
         if (aimDirection.sqrMagnitude <= 0.0001f)
@@ -401,15 +409,6 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     private void UpdatePrimaryVisibleWeight(bool isLockStance, bool isLockStanceAimActive)
     {
-        bool isCrouching = crouch != null && crouch.IsCrouching;
-
-        if (isCrouching && !isLockStance)
-        {
-            lockStanceShotPulseActive = false;
-            primaryVisibleWeight = 1f;
-            return;
-        }
-
         if (isLockStanceAimActive)
         {
             if (lockStanceShotPulseActive)
@@ -475,12 +474,6 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     public Vector3 ResolveDirectionForCurrentState(Vector3 direction)
     {
-        bool isLockStance = character != null && character.IsLockStanceMovementActive;
-        bool shouldForceCrouchForwardAim = crouch != null && crouch.IsCrouching && !isLockStance;
-
-        if (shouldForceCrouchForwardAim)
-            return GetFallbackShotDirection();
-
         if (direction.sqrMagnitude <= 0.0001f)
             direction = GetFallbackShotDirection();
 
@@ -508,6 +501,46 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         return new Vector3(clamped.x, clamped.y, 0f);
     }
 
+    public Vector3 ResolveShotDirectionForCurrentState(Vector3 direction)
+    {
+        bool isLockStance = character != null && character.IsLockStanceMovementActive;
+        bool shouldForceCrouchForwardShot = crouch != null && crouch.IsCrouching && !isLockStance;
+
+        if (shouldForceCrouchForwardShot)
+        {
+            if (!TryGetSlopeAdjustedCrouchShotDirection(out direction))
+                direction = GetFallbackShotDirection();
+        }
+
+        return ResolveDirectionForCurrentState(direction);
+    }
+
+    private bool TryGetSlopeAdjustedCrouchShotDirection(out Vector3 direction)
+    {
+        direction = default;
+
+        if (!enableSlopeAdjustedCrouchShot || character == null)
+            return false;
+        if (!character.IsGroundedNow)
+            return false;
+
+        SurfaceContacts25D contacts = character.LastSurfaceContacts;
+        if (!contacts.OnSlope || !contacts.IsSlopeSurfaceAuthorized)
+            return false;
+
+        Vector3 uphillDirection = contacts.SlopeTangent * -contacts.DownhillSign;
+        uphillDirection.z = 0f;
+        if (uphillDirection.sqrMagnitude <= 0.0001f)
+            return false;
+
+        int uphillFacingSign = uphillDirection.x >= 0f ? +1 : -1;
+        if (GetEffectiveFacingSign() != uphillFacingSign)
+            return false;
+
+        direction = uphillDirection.normalized;
+        return true;
+    }
+
     private Vector3 GetFallbackShotDirection()
     {
         int facingSign = GetEffectiveFacingSign();
@@ -530,6 +563,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     private int GetEffectiveFacingSign()
     {
+        if (facingResolver != null)
+            return facingResolver.ResolvedFacingSign;
+
         if (character != null && character.IsWallSliding)
         {
             if (character.WallSlideSide < 0)
@@ -539,6 +575,20 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         }
 
         return character != null ? character.VaultFacingSignFromInput : +1;
+    }
+
+    private void CacheFacingResolver()
+    {
+        if (facingResolver != null)
+            return;
+
+        if (character != null && character.FacingResolverComponent != null)
+        {
+            facingResolver = character.FacingResolverComponent;
+            return;
+        }
+
+        facingResolver = GetComponent<CharacterFacingResolver25D>();
     }
 
     private bool IsWallSlideFacingOverrideActive()

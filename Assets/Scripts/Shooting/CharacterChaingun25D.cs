@@ -19,6 +19,7 @@ public sealed class CharacterChaingun25D : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private RBCharacter25D character;
+    [SerializeField] private CharacterFacingResolver25D facingResolver;
     [SerializeField] private PlayerInput playerInput;
     [SerializeField] private CharacterMoveAimRig25D aimRig;
     [SerializeField] private PlayerControlLock25D controlLock;
@@ -99,15 +100,6 @@ public sealed class CharacterChaingun25D : MonoBehaviour
     [SerializeField] private float spin2ImpulseMagnitude = 0.12f;
     [SerializeField] private float spin3ImpulseMagnitude = 0.16f;
 
-    [Header("Air Shot Physics Recoil")]
-    [SerializeField] private bool applyAirShotRecoil;
-    [SerializeField] private bool applyAirShotRecoilPerBullet;
-    [SerializeField] private float airShotRecoilVelocity = 0.25f;
-    [SerializeField] private bool disableAirRecoilXWithoutMoveX = true;
-    [SerializeField] private bool disableAirRecoilYWithoutMoveY = false;
-    [SerializeField, Range(0f, 1f)] private float recoilInputDeadzone = 0.1f;
-    [SerializeField] private float recoilVelocityAxisDeadzone = 0.05f;
-
     [Header("Debug")]
     [SerializeField] private bool debugDrawShots;
     [SerializeField] private bool debugLogStateChanges;
@@ -145,6 +137,8 @@ public sealed class CharacterChaingun25D : MonoBehaviour
         if (character == null)
             character = GetComponent<RBCharacter25D>();
 
+        CacheFacingResolver();
+
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
 
@@ -159,6 +153,8 @@ public sealed class CharacterChaingun25D : MonoBehaviour
     {
         if (character == null)
             character = GetComponent<RBCharacter25D>();
+
+        CacheFacingResolver();
 
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
@@ -180,6 +176,8 @@ public sealed class CharacterChaingun25D : MonoBehaviour
 
         if (character == null)
             character = GetComponent<RBCharacter25D>();
+
+        CacheFacingResolver();
 
         if (playerInput == null)
             playerInput = GetComponent<PlayerInput>();
@@ -319,9 +317,6 @@ public sealed class CharacterChaingun25D : MonoBehaviour
         spin1ImpulseMagnitude = Mathf.Max(0f, spin1ImpulseMagnitude);
         spin2ImpulseMagnitude = Mathf.Max(0f, spin2ImpulseMagnitude);
         spin3ImpulseMagnitude = Mathf.Max(0f, spin3ImpulseMagnitude);
-        airShotRecoilVelocity = Mathf.Max(0f, airShotRecoilVelocity);
-        recoilInputDeadzone = Mathf.Clamp01(recoilInputDeadzone);
-        recoilVelocityAxisDeadzone = Mathf.Max(0f, recoilVelocityAxisDeadzone);
         debugRayDuration = Mathf.Max(0f, debugRayDuration);
     }
 
@@ -630,8 +625,6 @@ public sealed class CharacterChaingun25D : MonoBehaviour
             bulletsActuallyFired++;
             recoilDirectionAccumulator += shotDirection;
 
-            if (applyAirShotRecoil && applyAirShotRecoilPerBullet)
-                ApplyAirShotRecoilIfNeeded(shotDirection, rawMoveAtTick);
         }
 
         if (bulletsActuallyFired <= 0)
@@ -646,8 +639,7 @@ public sealed class CharacterChaingun25D : MonoBehaviour
 
         GenerateImpulseIfNeeded(recoilDirection);
 
-        if (applyAirShotRecoil && !applyAirShotRecoilPerBullet)
-            ApplyAirShotRecoilIfNeeded(recoilDirection, rawMoveAtTick);
+        NotifyAirShotPhysicsIfNeeded(recoilDirection);
 
         return true;
     }
@@ -705,35 +697,12 @@ public sealed class CharacterChaingun25D : MonoBehaviour
         impulseSource.GenerateImpulseAtPositionWithVelocity(impulseSource.transform.position, recoilVelocity);
     }
 
-    private void ApplyAirShotRecoilIfNeeded(Vector3 shotDirection, Vector2 rawMoveAtShot)
+    private void NotifyAirShotPhysicsIfNeeded(Vector3 shotDirection)
     {
-        if (!applyAirShotRecoil || character == null)
-            return;
-        if (character.IsGroundedNow || character.IsWallSliding || character.IsVaultingNow)
+        if (character == null)
             return;
 
-        Rigidbody rb = character.RigidbodyComponent;
-        if (rb == null || rb.isKinematic)
-            return;
-
-        Vector3 recoilDelta = -shotDirection.normalized * airShotRecoilVelocity;
-        recoilDelta.z = 0f;
-
-        bool hasMoveX = Mathf.Abs(rawMoveAtShot.x) > recoilInputDeadzone;
-        bool hasMoveY = Mathf.Abs(rawMoveAtShot.y) > recoilInputDeadzone;
-
-        Vector3 velocity = rb.linearVelocity;
-        bool hasVelocityX = Mathf.Abs(velocity.x) > recoilVelocityAxisDeadzone;
-        bool hasVelocityY = Mathf.Abs(velocity.y) > recoilVelocityAxisDeadzone;
-
-        if (disableAirRecoilXWithoutMoveX && !hasMoveX && !hasVelocityX)
-            recoilDelta.x = 0f;
-        if (disableAirRecoilYWithoutMoveY && !hasMoveY && !hasVelocityY)
-            recoilDelta.y = 0f;
-
-        velocity.x += recoilDelta.x;
-        velocity.y += recoilDelta.y;
-        rb.linearVelocity = velocity;
+        character.NotifyAirShotPhysics(shotDirection);
     }
 
     private Vector3 ResolveBaseShotDirection(Vector2 rawMove)
@@ -754,7 +723,7 @@ public sealed class CharacterChaingun25D : MonoBehaviour
         }
 
         if (aimRig != null)
-            direction = aimRig.ResolveDirectionForCurrentState(direction);
+            direction = aimRig.ResolveShotDirectionForCurrentState(direction);
 
         direction.z = 0f;
         if (direction.sqrMagnitude <= 0.0001f)
@@ -765,16 +734,38 @@ public sealed class CharacterChaingun25D : MonoBehaviour
 
     private Vector3 GetFallbackShotDirection()
     {
+        int facingSign = GetResolvedFacingSignFallback();
+        return facingSign >= 0 ? Vector3.right : Vector3.left;
+    }
+
+    private int GetResolvedFacingSignFallback()
+    {
+        if (facingResolver != null)
+            return facingResolver.ResolvedFacingSign;
+
         if (character != null && character.IsWallSliding)
         {
             if (character.WallSlideSide < 0)
-                return Vector3.right;
+                return +1;
             if (character.WallSlideSide > 0)
-                return Vector3.left;
+                return -1;
         }
 
-        int facingSign = character != null ? character.VaultFacingSignFromInput : +1;
-        return facingSign >= 0 ? Vector3.right : Vector3.left;
+        return character != null ? character.VaultFacingSignFromInput : +1;
+    }
+
+    private void CacheFacingResolver()
+    {
+        if (facingResolver != null)
+            return;
+
+        if (character != null && character.FacingResolverComponent != null)
+        {
+            facingResolver = character.FacingResolverComponent;
+            return;
+        }
+
+        facingResolver = GetComponent<CharacterFacingResolver25D>();
     }
 
     private Vector3 ApplySpread(Vector3 baseDirection, float spreadDeg)

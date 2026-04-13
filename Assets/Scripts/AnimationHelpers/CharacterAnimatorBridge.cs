@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [DisallowMultipleComponent]
 public class CharacterAnimatorBridge : MonoBehaviour
@@ -19,7 +20,9 @@ public class CharacterAnimatorBridge : MonoBehaviour
     [SerializeField] private string facingBlendParam = "FacingBlend";
     [SerializeField] private float facingBlendDampTime = 0.1f;
     [SerializeField] private string speedParam = "Speed";
-    [SerializeField] private float speedDampTime = 0.05f;
+    [FormerlySerializedAs("speedDampTime")]
+    [SerializeField] private float speedRiseDampTime = 0.05f;
+    [SerializeField] private float speedFallDampTime = 0.02f;
     [SerializeField] private string verticalSpeedParam = "VerticalSpeed";
     [SerializeField] private float verticalSpeedDampTime = 0.03f;
 
@@ -32,48 +35,84 @@ public class CharacterAnimatorBridge : MonoBehaviour
     [SerializeField] private string isControlLockedParam = "IsControlLocked";
     [SerializeField] private string isGroundKnockbackParam = "IsGroundKnockback";
     [SerializeField] private string isDiagonalKnockbackParam = "IsDiagonalKnockback";
+    [SerializeField] private string isFallingParam = "IsFalling";
+    [SerializeField] private string isSlopeSlidingParam = "IsSlopeSliding";
+    [SerializeField] private string isRunStoppingParam = "IsRunStopping";
+
+    [Header("Animator Extra Float Params")]
+    [SerializeField] private string slopeSlideSpeedParam = "SlopeSlideSpeed";
+    [SerializeField] private float slopeSlideSpeedDampTime = 0.03f;
+    [SerializeField] private string runStopSpeedParam = "RunStopSpeed";
+    [SerializeField] private float runStopSpeedDampTime = 0.03f;
 
     [Header("Animator Trigger Params")]
     [SerializeField] private string jumpSingleTriggerParam = "JumpSingle";
     [SerializeField] private string jumpDoubleTriggerParam = "JumpDouble";
     [SerializeField] private string knockbackGroundTriggerParam = "KnockbackGround";
     [SerializeField] private string knockbackDiagonalTriggerParam = "KnockbackDiagonal";
+    [SerializeField] private string landTriggerParam = "Land";
+
+    [Header("Landing Trigger Conditions")]
+    [SerializeField] private float minLandingAirborneTime = 0.05f;
+    [SerializeField] private float minLandingDownwardSpeed = 1.25f;
+    [SerializeField] private float suppressLandingAfterVaultWindow = 0.12f;
+    [SerializeField] private float suppressLandingAfterWallSlideWindow = 0.12f;
+
+    [Header("Vertical Speed Filtering")]
+    [SerializeField] private bool forceZeroVerticalSpeedWhenGrounded = true;
+    [SerializeField] private float verticalSpeedZeroEpsilon = 0.01f;
+    [SerializeField] private float fallEnterVerticalSpeed = -0.1f;
 
     private Animator cachedAnimatorForParams;
     private readonly Dictionary<int, AnimatorControllerParameterType> parameterTypesByHash =
         new Dictionary<int, AnimatorControllerParameterType>();
 
+    private const float InvalidPastTime = -999f;
+
     private int lastObservedJumpStateVersion;
     private bool jumpStateVersionInitialized;
+    private int lastObservedLandingStateVersion;
+    private bool landingStateVersionInitialized;
     private bool wasGroundKnockbackActive;
     private bool wasDiagonalKnockbackActive;
+    private bool wasGroundedLastFrame;
+    private bool hasAirborneState;
+    private float airborneStartTime = InvalidPastTime;
+    private float mostNegativeAirborneYSpeed;
 
     private void Reset()
     {
         CacheReferences();
+        ClampSettings();
         RebuildParameterCache();
         SyncObservedJumpVersion();
+        SyncObservedLandingState();
         SyncObservedKnockbackState();
     }
 
     private void Awake()
     {
         CacheReferences();
+        ClampSettings();
         RebuildParameterCache();
         SyncObservedJumpVersion();
+        SyncObservedLandingState();
         SyncObservedKnockbackState();
     }
 
     private void OnEnable()
     {
         CacheReferences();
+        ClampSettings();
         SyncObservedJumpVersion();
+        SyncObservedLandingState();
         SyncObservedKnockbackState();
     }
 
     private void OnValidate()
     {
         CacheReferences();
+        ClampSettings();
         RebuildParameterCache();
     }
 
@@ -89,8 +128,10 @@ public class CharacterAnimatorBridge : MonoBehaviour
         ApplyFacingBlend();
         ApplyMovementFloats();
         ApplyStateBools();
+        TrackLandingAirborneState();
         ApplyKnockbackParams();
         ApplyJumpTriggers();
+        ApplyLandingTrigger();
     }
 
     private void CacheReferences()
@@ -146,6 +187,27 @@ public class CharacterAnimatorBridge : MonoBehaviour
         jumpStateVersionInitialized = true;
     }
 
+    private void SyncObservedLandingState()
+    {
+        if (character == null)
+        {
+            landingStateVersionInitialized = false;
+            lastObservedLandingStateVersion = 0;
+            wasGroundedLastFrame = false;
+            ResetLandingAirborneState();
+            return;
+        }
+
+        lastObservedLandingStateVersion = character.LastLandingStateVersion;
+        landingStateVersionInitialized = true;
+        wasGroundedLastFrame = character.IsGroundedNow;
+
+        if (wasGroundedLastFrame)
+            ResetLandingAirborneState();
+        else
+            BeginLandingAirborneState();
+    }
+
     private void SyncObservedKnockbackState()
     {
         if (controlLock == null)
@@ -178,6 +240,8 @@ public class CharacterAnimatorBridge : MonoBehaviour
     {
         float speed = 0f;
         float verticalSpeed = 0f;
+        float slopeSlideSpeed = 0f;
+        float runStopSpeed = 0f;
 
         if (character != null)
         {
@@ -185,23 +249,35 @@ public class CharacterAnimatorBridge : MonoBehaviour
                 ? character.SpeedNormalized
                 : Mathf.Clamp01(character.HorizontalSpeedAbs);
 
-            Rigidbody body = character.RigidbodyComponent;
-            if (body != null)
-                verticalSpeed = body.linearVelocity.y;
+            verticalSpeed = GetFilteredAnimatorVerticalSpeed();
+            slopeSlideSpeed = character.SlopeSlideSpeedNormalized;
+            runStopSpeed = character.RunStopSpeedNormalized;
         }
 
-        SetAnimatorFloat(speedParam, speed, speedDampTime);
+        SetAnimatorSpeedFloat(speedParam, speed);
         SetAnimatorFloat(verticalSpeedParam, verticalSpeed, verticalSpeedDampTime);
+        SetAnimatorFloat(slopeSlideSpeedParam, slopeSlideSpeed, slopeSlideSpeedDampTime);
+        SetAnimatorFloat(runStopSpeedParam, runStopSpeed, runStopSpeedDampTime);
     }
 
     private void ApplyStateBools()
     {
-        SetAnimatorBool(isGroundedParam, character != null && character.IsGroundedNow);
+        bool isGrounded = character != null && character.IsGroundedNow;
+        bool isWallSliding = character != null && character.IsWallSliding;
+        bool isVaulting = character != null && character.IsVaultingNow;
+        bool isSlopeSliding = character != null && character.IsSlopeSlidingNow;
+        bool isRunStopping = character != null && character.IsRunStoppingNow;
+        bool isFalling = !isGrounded && !isWallSliding && !isVaulting && GetCurrentVerticalSpeed() < fallEnterVerticalSpeed;
+
+        SetAnimatorBool(isGroundedParam, isGrounded);
         SetAnimatorBool(isCrouchingParam, crouch != null && crouch.IsCrouching);
-        SetAnimatorBool(isWallSlidingParam, character != null && character.IsWallSliding);
-        SetAnimatorBool(isVaultingParam, character != null && character.IsVaultingNow);
+        SetAnimatorBool(isWallSlidingParam, isWallSliding);
+        SetAnimatorBool(isVaultingParam, isVaulting);
         SetAnimatorBool(isLockStanceParam, character != null && character.IsLockStanceGroundActive);
         SetAnimatorBool(isControlLockedParam, controlLock != null && controlLock.IsControlLocked);
+        SetAnimatorBool(isFallingParam, isFalling);
+        SetAnimatorBool(isSlopeSlidingParam, isSlopeSliding);
+        SetAnimatorBool(isRunStoppingParam, isRunStopping);
     }
 
     private void ApplyKnockbackParams()
@@ -253,6 +329,155 @@ public class CharacterAnimatorBridge : MonoBehaviour
                 SetAnimatorTrigger(jumpDoubleTriggerParam);
                 break;
         }
+    }
+
+    private void TrackLandingAirborneState()
+    {
+        if (character == null)
+        {
+            wasGroundedLastFrame = false;
+            ResetLandingAirborneState();
+            return;
+        }
+
+        bool groundedNow = character.IsGroundedNow;
+
+        if (!groundedNow)
+        {
+            if (wasGroundedLastFrame)
+                BeginLandingAirborneState();
+
+            UpdateLandingAirborneMotion();
+        }
+
+        wasGroundedLastFrame = groundedNow;
+    }
+
+    private void ApplyLandingTrigger()
+    {
+        if (character == null)
+        {
+            landingStateVersionInitialized = false;
+            return;
+        }
+
+        if (!landingStateVersionInitialized)
+        {
+            SyncObservedLandingState();
+            return;
+        }
+
+        int currentVersion = character.LastLandingStateVersion;
+        if (currentVersion == lastObservedLandingStateVersion)
+            return;
+
+        lastObservedLandingStateVersion = currentVersion;
+
+        bool shouldSuppressAfterVault =
+            character.LastVaultFinishedTime > InvalidPastTime &&
+            (Time.time - character.LastVaultFinishedTime) <= suppressLandingAfterVaultWindow;
+
+        bool shouldSuppressAfterWallSlide =
+            character.LastWallSlideFinishedTime > InvalidPastTime &&
+            (Time.time - character.LastWallSlideFinishedTime) <= suppressLandingAfterWallSlideWindow;
+
+        float airborneTime = airborneStartTime > InvalidPastTime
+            ? (Time.time - airborneStartTime)
+            : 0f;
+
+        bool longEnoughAirborne = airborneTime >= minLandingAirborneTime;
+        bool fastEnoughDownward = mostNegativeAirborneYSpeed <= -minLandingDownwardSpeed;
+
+        if (!shouldSuppressAfterVault &&
+            !shouldSuppressAfterWallSlide &&
+            hasAirborneState &&
+            (longEnoughAirborne || fastEnoughDownward))
+        {
+            SetAnimatorTrigger(landTriggerParam);
+        }
+
+        ResetLandingAirborneState();
+        wasGroundedLastFrame = character.IsGroundedNow;
+    }
+
+    private void BeginLandingAirborneState()
+    {
+        hasAirborneState = true;
+        airborneStartTime = Time.time;
+        mostNegativeAirborneYSpeed = Mathf.Min(0f, GetCurrentVerticalSpeed());
+    }
+
+    private void UpdateLandingAirborneMotion()
+    {
+        if (!hasAirborneState)
+            return;
+
+        float verticalSpeed = GetCurrentVerticalSpeed();
+        if (verticalSpeed < mostNegativeAirborneYSpeed)
+            mostNegativeAirborneYSpeed = verticalSpeed;
+    }
+
+    private void ResetLandingAirborneState()
+    {
+        hasAirborneState = false;
+        airborneStartTime = InvalidPastTime;
+        mostNegativeAirborneYSpeed = 0f;
+    }
+
+    private float GetCurrentVerticalSpeed()
+    {
+        if (character == null)
+            return 0f;
+
+        Rigidbody body = character.RigidbodyComponent;
+        return body != null ? body.linearVelocity.y : 0f;
+    }
+
+    private float GetFilteredAnimatorVerticalSpeed()
+    {
+        float verticalSpeed = GetCurrentVerticalSpeed();
+
+        if (forceZeroVerticalSpeedWhenGrounded && character != null && character.IsGroundedNow)
+            return 0f;
+
+        if (Mathf.Abs(verticalSpeed) <= verticalSpeedZeroEpsilon)
+            return 0f;
+
+        return verticalSpeed;
+    }
+
+    private void ClampSettings()
+    {
+        speedRiseDampTime = Mathf.Max(0f, speedRiseDampTime);
+        speedFallDampTime = Mathf.Max(0f, speedFallDampTime);
+        slopeSlideSpeedDampTime = Mathf.Max(0f, slopeSlideSpeedDampTime);
+        runStopSpeedDampTime = Mathf.Max(0f, runStopSpeedDampTime);
+        minLandingAirborneTime = Mathf.Max(0f, minLandingAirborneTime);
+        minLandingDownwardSpeed = Mathf.Max(0f, minLandingDownwardSpeed);
+        suppressLandingAfterVaultWindow = Mathf.Max(0f, suppressLandingAfterVaultWindow);
+        suppressLandingAfterWallSlideWindow = Mathf.Max(0f, suppressLandingAfterWallSlideWindow);
+        verticalSpeedZeroEpsilon = Mathf.Max(0f, verticalSpeedZeroEpsilon);
+        fallEnterVerticalSpeed = Mathf.Min(fallEnterVerticalSpeed, 0f);
+    }
+
+    private void SetAnimatorSpeedFloat(string parameterName, float targetValue)
+    {
+        if (!TryGetParameterType(parameterName, out AnimatorControllerParameterType parameterType) ||
+            parameterType != AnimatorControllerParameterType.Float)
+        {
+            return;
+        }
+
+        float currentValue = animator.GetFloat(parameterName);
+        float dampTime = targetValue > currentValue ? speedRiseDampTime : speedFallDampTime;
+
+        if (dampTime > 0f)
+        {
+            animator.SetFloat(parameterName, targetValue, dampTime, Time.deltaTime);
+            return;
+        }
+
+        animator.SetFloat(parameterName, targetValue);
     }
 
     private void SetAnimatorFloat(string parameterName, float value, float dampTime)
