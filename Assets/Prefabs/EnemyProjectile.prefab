@@ -105,7 +105,7 @@ SphereCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 278528
   m_LayerOverridePriority: 0
   m_IsTrigger: 1
   m_ProvidesContacts: 0
@@ -125,10 +125,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6766a62c5ef0f754598efb17ade0f46e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyProjectile25D
-  speed: 12
+  trajectoryMode: 1
+  speed: 20
+  gravityAcceleration: 10
   lifeTime: 3
   alignRotationToDirection: 1
+  worldHitMask:
+    serializedVersion: 2
+    m_Bits: 98560
+  collisionRadius: 0.04
+  destroyOnWorldHit: 1
   lockWorldZ: 1
   worldZ: 0
+  damage: 10
   destroyOnHeroHit: 1
-  destroyOnWorldHit: 1

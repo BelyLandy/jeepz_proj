@@ -11,6 +11,7 @@ public class CharacterAnimatorBridge : MonoBehaviour
     [SerializeField] private RBCharacter25D character;
     [SerializeField] private CharacterCrouch25D crouch;
     [SerializeField] private PlayerControlLock25D controlLock;
+    [SerializeField] private CharacterPlasmaGlove25D plasmaGlove;
     [SerializeField] private Transform rotationSource;
 
     [Header("Source Options")]
@@ -38,6 +39,8 @@ public class CharacterAnimatorBridge : MonoBehaviour
     [SerializeField] private string isFallingParam = "IsFalling";
     [SerializeField] private string isSlopeSlidingParam = "IsSlopeSliding";
     [SerializeField] private string isRunStoppingParam = "IsRunStopping";
+    [SerializeField] private string isPlasmaOutOfAmmoParam = "IsPlasmaOutOfAmmo";
+    [SerializeField] private string isPlasmaOverheatedParam = "IsPlasmaOverheated";
 
     [Header("Animator Extra Float Params")]
     [SerializeField] private string slopeSlideSpeedParam = "SlopeSlideSpeed";
@@ -51,6 +54,7 @@ public class CharacterAnimatorBridge : MonoBehaviour
     [SerializeField] private string knockbackGroundTriggerParam = "KnockbackGround";
     [SerializeField] private string knockbackDiagonalTriggerParam = "KnockbackDiagonal";
     [SerializeField] private string landTriggerParam = "Land";
+    [SerializeField] private string plasmaDryFireTriggerParam = "PlasmaDryFire";
 
     [Header("Landing Trigger Conditions")]
     [SerializeField] private float minLandingAirborneTime = 0.05f;
@@ -75,6 +79,8 @@ public class CharacterAnimatorBridge : MonoBehaviour
     private bool landingStateVersionInitialized;
     private bool wasGroundKnockbackActive;
     private bool wasDiagonalKnockbackActive;
+    private int lastObservedPlasmaDryFireVersion;
+    private bool plasmaDryFireVersionInitialized;
     private bool wasGroundedLastFrame;
     private bool hasAirborneState;
     private float airborneStartTime = InvalidPastTime;
@@ -88,6 +94,7 @@ public class CharacterAnimatorBridge : MonoBehaviour
         SyncObservedJumpVersion();
         SyncObservedLandingState();
         SyncObservedKnockbackState();
+        SyncObservedPlasmaDryFireState();
     }
 
     private void Awake()
@@ -98,6 +105,7 @@ public class CharacterAnimatorBridge : MonoBehaviour
         SyncObservedJumpVersion();
         SyncObservedLandingState();
         SyncObservedKnockbackState();
+        SyncObservedPlasmaDryFireState();
     }
 
     private void OnEnable()
@@ -107,6 +115,7 @@ public class CharacterAnimatorBridge : MonoBehaviour
         SyncObservedJumpVersion();
         SyncObservedLandingState();
         SyncObservedKnockbackState();
+        SyncObservedPlasmaDryFireState();
     }
 
     private void OnValidate()
@@ -128,10 +137,12 @@ public class CharacterAnimatorBridge : MonoBehaviour
         ApplyFacingBlend();
         ApplyMovementFloats();
         ApplyStateBools();
+        ApplyPlasmaWeaponParams();
         TrackLandingAirborneState();
         ApplyKnockbackParams();
         ApplyJumpTriggers();
         ApplyLandingTrigger();
+        ApplyPlasmaDryFireTrigger();
     }
 
     private void CacheReferences()
@@ -147,6 +158,9 @@ public class CharacterAnimatorBridge : MonoBehaviour
 
         if (controlLock == null)
             controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (plasmaGlove == null)
+            plasmaGlove = GetComponent<CharacterPlasmaGlove25D>();
 
         if (animator == null)
             animator = GetComponentInChildren<Animator>();
@@ -221,6 +235,20 @@ public class CharacterAnimatorBridge : MonoBehaviour
         wasDiagonalKnockbackActive = controlLock.IsDiagonalLockActive;
     }
 
+    private void SyncObservedPlasmaDryFireState()
+    {
+        if (plasmaGlove == null)
+        {
+            plasmaDryFireVersionInitialized = false;
+            lastObservedPlasmaDryFireVersion = 0;
+            return;
+        }
+
+        lastObservedPlasmaDryFireVersion = plasmaGlove.DryFireEventVersion;
+        plasmaDryFireVersionInitialized = true;
+    }
+
+
     private void ApplyFacingBlend()
     {
         if (rotationAnim == null || rotationSource == null)
@@ -278,6 +306,15 @@ public class CharacterAnimatorBridge : MonoBehaviour
         SetAnimatorBool(isFallingParam, isFalling);
         SetAnimatorBool(isSlopeSlidingParam, isSlopeSliding);
         SetAnimatorBool(isRunStoppingParam, isRunStopping);
+    }
+
+    private void ApplyPlasmaWeaponParams()
+    {
+        bool isOutOfAmmo = plasmaGlove != null && plasmaGlove.IsOutOfAmmoNow;
+        bool isOverheated = plasmaGlove != null && plasmaGlove.IsOverheatedNow;
+
+        SetAnimatorBool(isPlasmaOutOfAmmoParam, isOutOfAmmo);
+        SetAnimatorBool(isPlasmaOverheatedParam, isOverheated);
     }
 
     private void ApplyKnockbackParams()
@@ -351,6 +388,28 @@ public class CharacterAnimatorBridge : MonoBehaviour
         }
 
         wasGroundedLastFrame = groundedNow;
+    }
+
+    private void ApplyPlasmaDryFireTrigger()
+    {
+        if (plasmaGlove == null)
+        {
+            plasmaDryFireVersionInitialized = false;
+            return;
+        }
+
+        if (!plasmaDryFireVersionInitialized)
+        {
+            SyncObservedPlasmaDryFireState();
+            return;
+        }
+
+        int currentVersion = plasmaGlove.DryFireEventVersion;
+        if (currentVersion == lastObservedPlasmaDryFireVersion)
+            return;
+
+        lastObservedPlasmaDryFireVersion = currentVersion;
+        SetAnimatorTrigger(plasmaDryFireTriggerParam);
     }
 
     private void ApplyLandingTrigger()

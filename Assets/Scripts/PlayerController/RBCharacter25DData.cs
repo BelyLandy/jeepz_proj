@@ -28,6 +28,10 @@ public struct SurfaceContacts25D
     public bool BlockedRight;
     public RaycastHit LeftWallHit;
     public RaycastHit RightWallHit;
+    public bool WallInteractableLeft;
+    public bool WallInteractableRight;
+    public RaycastHit LeftWallInteractionHit;
+    public RaycastHit RightWallInteractionHit;
 }
 
 public struct LocomotionState25D

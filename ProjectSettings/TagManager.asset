@@ -22,12 +22,12 @@ TagManager:
   - EnemyProjectile
   - Hero
   - Slope
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - Pickup
+  - EnemyHurtbox
+  - Enemy
+  - HeroProjectile
+  - TerrainNoWallslide
+  - RepelBox
   - 
   - 
   - 
@@ -40,6 +40,9 @@ TagManager:
   m_SortingLayers:
   - name: Default
     uniqueID: 0
+    locked: 0
+  - name: MenuProjectileShot
+    uniqueID: 924895543
     locked: 0
   m_RenderingLayers:
   - Default

@@ -5,6 +5,7 @@ public enum SurfaceSensorQuery25D
     Support = 0,
     GroundSurface = 1,
     Wall = 2,
+    WallInteraction = 3,
 }
 
 [System.Serializable]
@@ -18,6 +19,7 @@ public sealed class RBCharacter25DSurfaceSensor
     private readonly RaycastHit[] castHits = new RaycastHit[16];
 
     private LayerMask groundMask;
+    private LayerMask wallInteractionMask;
     private float groundProbeDistance;
     private float groundProbeStartOffset;
     private float groundProbeInset;
@@ -46,6 +48,7 @@ public sealed class RBCharacter25DSurfaceSensor
 
     public void SyncSettings(
         LayerMask groundMask,
+        LayerMask wallInteractionMask,
         float groundProbeDistance,
         float groundProbeStartOffset,
         float groundProbeInset,
@@ -61,6 +64,7 @@ public sealed class RBCharacter25DSurfaceSensor
         float lockedZ)
     {
         this.groundMask = groundMask;
+        this.wallInteractionMask = wallInteractionMask.value != 0 ? wallInteractionMask : groundMask;
         this.groundProbeDistance = Mathf.Max(0.001f, groundProbeDistance);
         this.groundProbeStartOffset = Mathf.Max(0f, groundProbeStartOffset);
         this.groundProbeInset = Mathf.Max(0f, groundProbeInset);
@@ -110,8 +114,10 @@ public sealed class RBCharacter25DSurfaceSensor
         float z = lockZ ? lockedZ : bounds.center.z;
         Vector3 wallOrigin = new Vector3(bounds.center.x, bounds.center.y + wallCheckHeightOffset, z);
 
-        contacts.BlockedRight = TryGetWallHit(wallOrigin, wallCheckRadius, Vector3.right, wallCheckDistance, out contacts.RightWallHit);
-        contacts.BlockedLeft = TryGetWallHit(wallOrigin, wallCheckRadius, Vector3.left, wallCheckDistance, out contacts.LeftWallHit);
+        contacts.BlockedRight = TryGetWallHit(wallOrigin, wallCheckRadius, Vector3.right, wallCheckDistance, groundMask, SurfaceSensorQuery25D.Wall, out contacts.RightWallHit);
+        contacts.BlockedLeft = TryGetWallHit(wallOrigin, wallCheckRadius, Vector3.left, wallCheckDistance, groundMask, SurfaceSensorQuery25D.Wall, out contacts.LeftWallHit);
+        contacts.WallInteractableRight = TryGetWallHit(wallOrigin, wallCheckRadius, Vector3.right, wallCheckDistance, wallInteractionMask, SurfaceSensorQuery25D.WallInteraction, out contacts.RightWallInteractionHit);
+        contacts.WallInteractableLeft = TryGetWallHit(wallOrigin, wallCheckRadius, Vector3.left, wallCheckDistance, wallInteractionMask, SurfaceSensorQuery25D.WallInteraction, out contacts.LeftWallInteractionHit);
         return contacts;
     }
 
@@ -225,7 +231,7 @@ public sealed class RBCharacter25DSurfaceSensor
         return found;
     }
 
-    private bool TryGetWallHit(Vector3 origin, float radius, Vector3 direction, float distance, out RaycastHit bestHit)
+    private bool TryGetWallHit(Vector3 origin, float radius, Vector3 direction, float distance, LayerMask mask, SurfaceSensorQuery25D queryType, out RaycastHit bestHit)
     {
         bestHit = default;
 
@@ -235,7 +241,7 @@ public sealed class RBCharacter25DSurfaceSensor
             direction,
             castHits,
             distance,
-            groundMask,
+            mask,
             QueryTriggerInteraction.Ignore);
 
         bool found = false;
@@ -248,7 +254,7 @@ public sealed class RBCharacter25DSurfaceSensor
                 continue;
             if (hit.collider.attachedRigidbody == rb)
                 continue;
-            if (!ShouldAcceptHit(hit, SurfaceSensorQuery25D.Wall))
+            if (!ShouldAcceptHit(hit, queryType))
                 continue;
             if (Vector3.Dot(hit.normal, direction) >= -0.1f)
                 continue;

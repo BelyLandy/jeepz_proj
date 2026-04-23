@@ -472,6 +472,7 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
 
         Quaternion shotRotation = Quaternion.Euler(0f, 0f, DirectionToWorldZAngleDeg(shotDirection));
         StraightProjectile projectileInstance = Instantiate(projectilePrefab, sourcePoint.position, shotRotation, projectileParent);
+        projectileInstance.SetOwnerRoot(transform.root);
         projectileInstance.Launch(shotDirection);
     }
 

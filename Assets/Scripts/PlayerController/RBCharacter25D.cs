@@ -306,6 +306,9 @@ public sealed class RBCharacter25D : MonoBehaviour
     [Tooltip("Насколько мала должна быть составляющая нормали по Y, чтобы считаться стеной.")]
     [SerializeField, Range(0f, 1f)] private float wallMaxNormalY = 0.2f;
 
+    [Tooltip("Какие слои считаются валидными именно для wall slide / wall jump / wall latch. Если маска пуста, используется GroundMask.")]
+    [SerializeField] private LayerMask wallInteractionMask;
+
     [Header("Gravity")]
     [Tooltip("Используется только если autoTuneJump=false. Аналог gravityScale для 3D.")]
     [SerializeField] private float manualGravityScale = 1f;
@@ -420,6 +423,7 @@ public sealed class RBCharacter25D : MonoBehaviour
     public bool IsSlopeSurfaceAuthorizedNow => lastContacts.HasGroundSurface && lastContacts.IsSlopeSurfaceAuthorized;
     public bool IsSlopeHandlingRuntimeActiveNow => IsSlopeHandlingRuntimeActive(lastContacts);
     public LayerMask GroundMask => groundMask;
+    public LayerMask WallInteractionMask => wallInteractionMask.value != 0 ? wallInteractionMask : groundMask;
     public bool UsesLockedZ => lockZ;
     public float LockedZPosition => lockedZ;
     public int VaultFacingSignFromInput => lastNonZeroInputX < 0f ? -1 : 1;
@@ -557,6 +561,8 @@ public sealed class RBCharacter25D : MonoBehaviour
         int terrainLayer = LayerMask.NameToLayer("Terrain");
         if (terrainLayer >= 0)
             groundMask = 1 << terrainLayer;
+
+        wallInteractionMask = groundMask;
 
         groundProbeDistance = 0.08f;
         groundProbeStartOffset = 0.02f;
@@ -712,6 +718,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         surfaceSensor.SyncSettings(
             groundMask,
+            WallInteractionMask,
             groundProbeDistance,
             groundProbeStartOffset,
             groundProbeInset,
@@ -861,6 +868,9 @@ public sealed class RBCharacter25D : MonoBehaviour
         wallReattachCooldown = Mathf.Max(0f, wallReattachCooldown);
         wallMinNormalX = Mathf.Clamp01(wallMinNormalX);
         wallMaxNormalY = Mathf.Clamp01(wallMaxNormalY);
+
+        if (wallInteractionMask.value == 0)
+            wallInteractionMask = groundMask;
 
         manualGravityScale = Mathf.Max(0f, manualGravityScale);
         groundProbeDistance = Mathf.Max(0.001f, groundProbeDistance);
@@ -1970,7 +1980,7 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (!useAirShotPhysicsAssist || rb == null || rb.isKinematic)
             return;
 
-        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow)
+        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow || IsCrouchingNow())
         {
             ClearAirShotPhysicsAssistWindows();
             return;
@@ -2009,6 +2019,11 @@ public sealed class RBCharacter25D : MonoBehaviour
         return airShotHorizontalRecoilUntilTime > InvalidPastTime && Time.time < airShotHorizontalRecoilUntilTime;
     }
 
+    private bool IsCrouchingNow()
+    {
+        return crouchController != null && crouchController.IsCrouching;
+    }
+
     private void ClearAirShotPhysicsAssistWindows()
     {
         airShotSlowFallUntilTime = InvalidPastTime;
@@ -2027,7 +2042,7 @@ public sealed class RBCharacter25D : MonoBehaviour
 
         if (!useAirShotPhysicsAssist || rb == null || rb.isKinematic)
             return false;
-        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow)
+        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow || IsCrouchingNow())
             return false;
         if (!IsAirShotHorizontalRecoilActive())
             return false;
@@ -2079,8 +2094,13 @@ public sealed class RBCharacter25D : MonoBehaviour
     {
         if (!useAirShotPhysicsAssist || rb == null || rb.isKinematic)
             return;
-        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow)
+
+        if (state.IsGrounded || state.IsWallSliding || IsVaultingNow || IsCrouchingNow())
+        {
+            if (IsCrouchingNow())
+                ClearAirShotPhysicsAssistWindows();
             return;
+        }
 
         shotDirection.z = 0f;
         if (shotDirection.sqrMagnitude <= 0.0001f)
@@ -2186,8 +2206,8 @@ public sealed class RBCharacter25D : MonoBehaviour
 
     private void TryStartWallLatch(SurfaceContacts25D contacts)
     {
-        bool canLatchLeft = contacts.BlockedLeft && CanLatchToWallSide(WallSideLeft);
-        bool canLatchRight = contacts.BlockedRight && CanLatchToWallSide(WallSideRight);
+        bool canLatchLeft = contacts.WallInteractableLeft && CanLatchToWallSide(WallSideLeft);
+        bool canLatchRight = contacts.WallInteractableRight && CanLatchToWallSide(WallSideRight);
 
         if (!canLatchLeft && !canLatchRight)
             return;
@@ -2304,9 +2324,9 @@ public sealed class RBCharacter25D : MonoBehaviour
     private bool IsTouchingWallSide(SurfaceContacts25D contacts, int side)
     {
         if (side == WallSideLeft)
-            return contacts.BlockedLeft;
+            return contacts.WallInteractableLeft;
         if (side == WallSideRight)
-            return contacts.BlockedRight;
+            return contacts.WallInteractableRight;
         return false;
     }
 

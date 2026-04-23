@@ -178,8 +178,9 @@ public sealed class OneWayPlatformController : MonoBehaviour
         if (platform == null)
             return true;
 
-        // One-way platform никогда не должна считаться стеной для wall slide / wall block логики.
-        if (queryType == SurfaceSensorQuery25D.Wall)
+        // One-way platform никогда не должна считаться стеной для wall slide / wall block логики
+        // и не должна участвовать в специальных wall-interaction проверках.
+        if (queryType == SurfaceSensorQuery25D.Wall || queryType == SurfaceSensorQuery25D.WallInteraction)
             return false;
 
         return !IsPlatformSuppressedForSensor(platform, queryType);

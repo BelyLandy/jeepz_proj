@@ -11,6 +11,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     [SerializeField] private CharacterFacingResolver25D facingResolver;
     [SerializeField] private PlayerInput playerInput;
     [SerializeField] private PlayerControlLock25D controlLock;
+    [SerializeField] private CharacterPlasmaGlove25D plasmaGlove;
     [SerializeField] private CharacterCrouch25D crouch;
     [SerializeField] private Rig leftHandRig;
     [SerializeField] private Rig rightHandRig;
@@ -35,6 +36,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     [SerializeField] private float headLocalAngleOffsetZ = 0f;
     [SerializeField] private float headAimSwitchBlendTime = 0.08f;
     [SerializeField] private float neckAlternateHandConstraintOffsetX = 60f;
+    [SerializeField, Min(0.001f)] private float neckAlternateHandBlendTime = 0.12f;
     [SerializeField] private float leftArmLockStanceRestLocalY = 67.469f;
     [SerializeField] private float rightArmLockStanceRestLocalY = -67.469f;
 
@@ -106,7 +108,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     private Quaternion frozenHeadLocalRotation;
     private float currentHeadRelativeAimAngleZ;
     private bool hasCurrentHeadRelativeAimAngle;
-    private bool wasLockStanceAimActiveLastFrame;
+    private bool wasLockStyleAimActiveLastFrame;
 
     private float headLookRuntimeWeight;
     private float headLookLatchedRelativeAimAngleZ;
@@ -134,6 +136,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (controlLock == null)
             controlLock = GetComponent<PlayerControlLock25D>();
 
+        if (plasmaGlove == null)
+            plasmaGlove = GetComponent<CharacterPlasmaGlove25D>();
+
         if (crouch == null)
             crouch = GetComponent<CharacterCrouch25D>();
 
@@ -154,6 +159,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         if (controlLock == null)
             controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (plasmaGlove == null)
+            plasmaGlove = GetComponent<CharacterPlasmaGlove25D>();
 
         if (crouch == null)
             crouch = GetComponent<CharacterCrouch25D>();
@@ -183,6 +191,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         if (controlLock == null)
             controlLock = GetComponent<PlayerControlLock25D>();
+
+        if (plasmaGlove == null)
+            plasmaGlove = GetComponent<CharacterPlasmaGlove25D>();
 
         if (crouch == null)
             crouch = GetComponent<CharacterCrouch25D>();
@@ -220,7 +231,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         ClearHeadPoseFreeze();
         hasCurrentHeadRelativeAimAngle = false;
         currentHeadRelativeAimAngleZ = 0f;
-        wasLockStanceAimActiveLastFrame = false;
+        wasLockStyleAimActiveLastFrame = false;
         headLookRuntimeWeight = 0f;
         headLookLatchedRelativeAimAngleZ = 0f;
         hasHeadLookLatchedRelativeAimAngle = false;
@@ -247,6 +258,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         lockStanceShotRecoverTime = Mathf.Max(0.0001f, lockStanceShotRecoverTime);
         headAimSwitchBlendTime = Mathf.Max(0.0001f, headAimSwitchBlendTime);
         neckAlternateHandConstraintOffsetX = Mathf.Max(0f, neckAlternateHandConstraintOffsetX);
+        neckAlternateHandBlendTime = Mathf.Max(0.001f, neckAlternateHandBlendTime);
         headLookFadeInTime = Mathf.Max(0.0001f, headLookFadeInTime);
         headLookFadeOutTime = Mathf.Max(0.0001f, headLookFadeOutTime);
         headLookResumeDelay = Mathf.Max(0f, headLookResumeDelay);
@@ -275,16 +287,40 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         moveAction = resolvedActionMap != null ? resolvedActionMap.FindAction(moveActionName, false) : null;
     }
 
+    private bool CanPresentWeaponPoseNow()
+    {
+        return plasmaGlove == null || plasmaGlove.CanPresentWeaponPoseNow;
+    }
+
+    private bool IsGroundLockStylePoseActive()
+    {
+        return character != null && character.IsLockStanceMovementActive;
+    }
+
+    private bool IsWallSlideLockStylePoseCandidate()
+    {
+        return character != null && character.IsWallSliding && character.IsLockStanceHeld;
+    }
+
+    private bool UseLockStylePose()
+    {
+        return IsGroundLockStylePoseActive() || IsWallSlideLockStylePoseCandidate();
+    }
+
     private void UpdateAimVisual()
     {
         bool isControlLocked = controlLock != null && controlLock.IsControlLocked;
-        bool isLockStance = character != null && character.IsLockStanceMovementActive;
+        bool isGroundLockStylePose = IsGroundLockStylePoseActive();
+        bool isWallSlideLockStylePose = IsWallSlideLockStylePoseCandidate();
+        bool useLockStylePose = isGroundLockStylePose || isWallSlideLockStylePose;
         bool isCrouching = crouch != null && crouch.IsCrouching;
-        bool suppressVisualAimWhileCrouching = isCrouching && !isLockStance;
+        bool suppressVisualAimWhileCrouching = isCrouching && !useLockStylePose;
 
         Vector2 moveAim = Vector2.zero;
         bool hasMoveAim = !isControlLocked && !suppressVisualAimWhileCrouching && TryGetRawMoveAim(out moveAim);
-        bool isLockStanceAimActive = isLockStance && hasMoveAim;
+        bool weaponPoseAllowed = CanPresentWeaponPoseNow();
+        bool hasWeaponPoseAim = hasMoveAim && weaponPoseAllowed;
+        bool isLockStyleAimActive = useLockStylePose && hasWeaponPoseAim;
 
         Vector3 aimDirection;
         if (hasMoveAim)
@@ -311,13 +347,16 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         heldAimAngleDeg = currentAimAngleDeg;
         heldShotDirection = aimDirection;
 
-        UpdatePrimaryVisibleWeight(isLockStance, isLockStanceAimActive);
-        bool hasExplicitHeadAim = isLockStanceAimActive || hasMoveAim;
-        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, hasExplicitHeadAim, isControlLocked, isLockStance, isLockStanceAimActive);
+        UpdatePrimaryVisibleWeight(useLockStylePose, isLockStyleAimActive);
+        bool hasExplicitHeadAim = isLockStyleAimActive || hasWeaponPoseAim;
+        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, hasExplicitHeadAim, isControlLocked, useLockStylePose, isLockStyleAimActive, weaponPoseAllowed);
     }
 
     public void NotifyShotDirection(Vector3 shotDirection)
     {
+        if (!CanPresentWeaponPoseNow())
+            return;
+
         if (shotDirection.sqrMagnitude <= 0.0001f)
             shotDirection = GetFallbackShotDirection();
 
@@ -333,11 +372,20 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         primaryVisibleWeight = 1f;
 
-        bool isLockStance = character != null && character.IsLockStanceMovementActive;
-        bool hasMoveAim = TryGetRawMoveAim(out _);
-        bool isLockStanceAimActive = isLockStance && hasMoveAim;
+        bool isControlLocked = controlLock != null && controlLock.IsControlLocked;
+        bool isGroundLockStylePose = IsGroundLockStylePoseActive();
+        bool isWallSlideLockStylePose = IsWallSlideLockStylePoseCandidate();
+        bool useLockStylePose = isGroundLockStylePose || isWallSlideLockStylePose;
 
-        if (isLockStanceAimActive)
+        bool isCrouching = crouch != null && crouch.IsCrouching;
+        bool suppressVisualAimWhileCrouching = isCrouching && !useLockStylePose;
+
+        bool hasMoveAim = !isControlLocked && !suppressVisualAimWhileCrouching && TryGetRawMoveAim(out _);
+        bool weaponPoseAllowed = CanPresentWeaponPoseNow();
+        bool hasWeaponPoseAim = hasMoveAim && weaponPoseAllowed;
+        bool isLockStyleAimActive = useLockStylePose && hasWeaponPoseAim;
+
+        if (isLockStyleAimActive)
         {
             lockStanceShotPulseActive = true;
             lockStanceShotPulseStartedAt = Time.time;
@@ -350,7 +398,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (ShouldSuppressHeadLookForShot())
             headLookSuppressedUntilTime = Time.time + headLookResumeDelay;
 
-        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, true, false, isLockStance, isLockStanceAimActive);
+        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, true, isControlLocked, useLockStylePose, isLockStyleAimActive, true);
     }
 
     public bool EvaluateHandForDirection(Vector3 direction, bool updateState)
@@ -407,9 +455,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         return selectedUsesLeft;
     }
 
-    private void UpdatePrimaryVisibleWeight(bool isLockStance, bool isLockStanceAimActive)
+    private void UpdatePrimaryVisibleWeight(bool useLockStylePose, bool isLockStyleAimActive)
     {
-        if (isLockStanceAimActive)
+        if (isLockStyleAimActive)
         {
             if (lockStanceShotPulseActive)
                 primaryVisibleWeight = EvaluateLockStanceShotPulseWeight();
@@ -420,7 +468,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         lockStanceShotPulseActive = false;
 
-        float fadeDuration = isLockStance ? lockStanceReleaseFadeOutTime : movementShotFadeOutTime;
+        float fadeDuration = useLockStylePose ? lockStanceReleaseFadeOutTime : movementShotFadeOutTime;
         primaryVisibleWeight = MoveTowardsByDuration(primaryVisibleWeight, 0f, fadeDuration);
     }
 
@@ -459,6 +507,14 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         float maxDelta = Time.deltaTime / duration;
         return Mathf.MoveTowards(current, target, maxDelta);
+    }
+
+    private float GetNeckAlternateHandBlendTime()
+    {
+        if (neckAlternateHandBlendTime > 0.0001f)
+            return neckAlternateHandBlendTime;
+
+        return Mathf.Max(0.0001f, lockStanceReleaseFadeOutTime);
     }
 
     private bool TryGetRawMoveAim(out Vector2 move)
@@ -642,12 +698,12 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         return angleDeg;
     }
 
-    private float DetermineDesiredDisplayedHeadRelativeAimAngle(float baseHeadRelativeAimAngleZ, bool isControlLocked, bool isLockStance, bool isLockStanceAimActive)
+    private float DetermineDesiredDisplayedHeadRelativeAimAngle(float baseHeadRelativeAimAngleZ, bool isControlLocked, bool useLockStylePose, bool isLockStyleAimActive)
     {
-        bool shouldUseHeadLook = TryGetDesiredHeadLookRelativeAimAngle(isControlLocked, isLockStance, isLockStanceAimActive, out float targetHeadLookRelativeAimAngleZ);
+        bool shouldUseHeadLook = TryGetDesiredHeadLookRelativeAimAngle(isControlLocked, useLockStylePose, isLockStyleAimActive, out float targetHeadLookRelativeAimAngleZ);
         UpdateHeadLookRuntime(shouldUseHeadLook, targetHeadLookRelativeAimAngleZ);
 
-        if (isLockStanceAimActive)
+        if (isLockStyleAimActive)
             return baseHeadRelativeAimAngleZ;
 
         if (shouldUseHeadLook && hasHeadLookLatchedRelativeAimAngle)
@@ -659,14 +715,14 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         return baseHeadRelativeAimAngleZ;
     }
 
-    private bool TryGetDesiredHeadLookRelativeAimAngle(bool isControlLocked, bool isLockStance, bool isLockStanceAimActive, out float headLookRelativeAimAngleZ)
+    private bool TryGetDesiredHeadLookRelativeAimAngle(bool isControlLocked, bool useLockStylePose, bool isLockStyleAimActive, out float headLookRelativeAimAngleZ)
     {
         headLookRelativeAimAngleZ = 0f;
 
         if (headTargetTracking == null)
             return false;
 
-        if (isControlLocked || isLockStance || isLockStanceAimActive)
+        if (isControlLocked || useLockStylePose || isLockStyleAimActive)
             return false;
 
         if (Time.time < headLookSuppressedUntilTime)
@@ -787,21 +843,21 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
     }
 
-    private void ApplyVisualAimAndWeights(float angleDeg, float combatAimAngleZ, float headRelativeAimAngleZ, bool hasExplicitHeadAim, bool isControlLocked, bool isLockStance, bool isLockStanceAimActive)
+    private void ApplyVisualAimAndWeights(float angleDeg, float combatAimAngleZ, float headRelativeAimAngleZ, bool hasExplicitHeadAim, bool isControlLocked, bool useLockStylePose, bool isLockStyleAimActive, bool weaponPoseAllowed)
     {
         int facingSign = GetEffectiveFacingSign();
-        float? leftLocalYOverride = GetArmLocalYOverride(isLockStance, facingSign, manageLeftArm: true);
-        float? rightLocalYOverride = GetArmLocalYOverride(isLockStance, facingSign, manageLeftArm: false);
+        float? leftLocalYOverride = GetArmLocalYOverride(useLockStylePose, weaponPoseAllowed, facingSign, manageLeftArm: true);
+        float? rightLocalYOverride = GetArmLocalYOverride(useLockStylePose, weaponPoseAllowed, facingSign, manageLeftArm: false);
 
         ApplyArmLocalRotationWithOptionalFreeze(leftArmAimObject, ref hasLeftArmBaseLocalEuler, ref leftArmBaseLocalEuler, angleDeg + leftLocalAngleOffsetX, leftLocalYOverride, freezeLeftArmPose, frozenLeftArmLocalRotation);
         ApplyArmLocalRotationWithOptionalFreeze(rightArmAimObject, ref hasRightArmBaseLocalEuler, ref rightArmBaseLocalEuler, angleDeg + rightLocalAngleOffsetX, rightLocalYOverride, freezeRightArmPose, frozenRightArmLocalRotation);
 
         float baseDisplayedHeadRelativeAimAngleZ = hasExplicitHeadAim ? headRelativeAimAngleZ : 0f;
-        float desiredDisplayedHeadRelativeAimAngleZ = DetermineDesiredDisplayedHeadRelativeAimAngle(baseDisplayedHeadRelativeAimAngleZ, isControlLocked, isLockStance, isLockStanceAimActive);
-        UpdateHeadPoseState(desiredDisplayedHeadRelativeAimAngleZ, isLockStance, isLockStanceAimActive);
+        float desiredDisplayedHeadRelativeAimAngleZ = DetermineDesiredDisplayedHeadRelativeAimAngle(baseDisplayedHeadRelativeAimAngleZ, isControlLocked, useLockStylePose, isLockStyleAimActive);
+        UpdateHeadPoseState(desiredDisplayedHeadRelativeAimAngleZ, useLockStylePose, isLockStyleAimActive);
         float appliedHeadRelativeAimAngleZ = GetAppliedHeadRelativeAimAngleZ(desiredDisplayedHeadRelativeAimAngleZ);
         ApplyHeadLocalRotationWithOptionalFreeze(headAimObject, ref hasHeadBaseLocalEuler, ref headBaseLocalEuler, 0f, headForwardLocalZ - appliedHeadRelativeAimAngleZ + headLocalAngleOffsetZ, freezeHeadPose, frozenHeadLocalRotation);
-        ApplyNeckAlternateHandConstraint(isLockStanceAimActive);
+        ApplyNeckAlternateHandConstraint(isLockStyleAimActive);
 
         if (currentUsesLeftRig)
         {
@@ -825,8 +881,8 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     {
         int facingSign = GetEffectiveFacingSign();
 
-        bool isLockStance = character != null && character.IsLockStanceMovementActive;
-        if (!isLockStance || !hasHandSelection)
+        bool useLockStylePose = UseLockStylePose();
+        if (!useLockStylePose || !hasHandSelection)
             return facingSign;
 
         bool frontUsesLeft = GetFrontHemisphereUsesLeftForCurrentFacing();
@@ -834,14 +890,14 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         return isAlternateHand ? -facingSign : facingSign;
     }
 
-    private float? GetArmLocalYOverride(bool isLockStance, int facingSign, bool manageLeftArm)
+    private float? GetArmLocalYOverride(bool useLockStylePose, bool weaponPoseAllowed, int facingSign, bool manageLeftArm)
     {
         bool shouldManageThisArm = facingSign >= 0 ? !manageLeftArm : manageLeftArm;
         if (!shouldManageThisArm)
             return null;
 
         float restY = manageLeftArm ? leftArmLockStanceRestLocalY : rightArmLockStanceRestLocalY;
-        if (!isLockStance || !hasHandSelection)
+        if (!useLockStylePose || !hasHandSelection || !weaponPoseAllowed)
             return restY;
 
         bool activeManagedArm = manageLeftArm ? currentUsesLeftRig : !currentUsesLeftRig;
@@ -911,12 +967,12 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         ApplyHeadLocalRotation(target, ref hasBaseEuler, ref baseEuler, extraYAngle, zAngle);
     }
 
-    private void UpdateHeadPoseState(float desiredHeadRelativeAimAngleZ, bool isLockStance, bool isLockStanceAimActive)
+    private void UpdateHeadPoseState(float desiredHeadRelativeAimAngleZ, bool useLockStylePose, bool isLockStyleAimActive)
     {
-        if (isLockStance && wasLockStanceAimActiveLastFrame && !isLockStanceAimActive)
+        if (useLockStylePose && wasLockStyleAimActiveLastFrame && !isLockStyleAimActive)
             BeginHeadPoseFreeze();
 
-        if (!isLockStance || isLockStanceAimActive)
+        if (!useLockStylePose || isLockStyleAimActive)
             ClearHeadPoseFreeze();
 
         if (!hasCurrentHeadRelativeAimAngle)
@@ -926,11 +982,11 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         }
         else if (!freezeHeadPose)
         {
-            float duration = isLockStanceAimActive ? headAimSwitchBlendTime : headLookAngleBlendTime;
+            float duration = isLockStyleAimActive ? headAimSwitchBlendTime : headLookAngleBlendTime;
             currentHeadRelativeAimAngleZ = SmoothTowardsAngleByDuration(currentHeadRelativeAimAngleZ, desiredHeadRelativeAimAngleZ, duration);
         }
 
-        wasLockStanceAimActiveLastFrame = isLockStanceAimActive;
+        wasLockStyleAimActiveLastFrame = isLockStyleAimActive;
     }
 
     private float GetAppliedHeadRelativeAimAngleZ(float desiredHeadRelativeAimAngleZ)
@@ -959,7 +1015,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         if (!hadSelectionBefore || previousUsesLeftRig == newUsesLeftRig)
             return false;
 
-        return character != null && character.IsLockStanceMovementActive;
+        return UseLockStylePose();
     }
 
     private void BeginInactiveHandPoseFreeze(bool outgoingUsesLeftRig)
@@ -1032,7 +1088,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
             ClearHeadPoseFreeze();
     }
 
-    private void ApplyNeckAlternateHandConstraint(bool isLockStanceAimActive)
+    private void ApplyNeckAlternateHandConstraint(bool isLockStyleAimActive)
     {
         if (neckAlternateHandConstraint == null)
             return;
@@ -1040,7 +1096,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         bool shouldUseAlternateNeckPose = false;
         float targetOffsetX = 0f;
 
-        if (isLockStanceAimActive && hasHandSelection)
+        if (isLockStyleAimActive && hasHandSelection)
         {
             bool frontUsesLeft = GetFrontHemisphereUsesLeftForCurrentFacing();
             bool isAlternateHand = currentUsesLeftRig != frontUsesLeft;
@@ -1055,7 +1111,7 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         }
 
         float targetWeight = shouldUseAlternateNeckPose ? 1f : 0f;
-        neckAlternateRuntimeWeight = MoveTowardsByDuration(neckAlternateRuntimeWeight, targetWeight, lockStanceReleaseFadeOutTime);
+        neckAlternateRuntimeWeight = MoveTowardsByDuration(neckAlternateRuntimeWeight, targetWeight, GetNeckAlternateHandBlendTime());
 
         float appliedOffsetX = 0f;
         if (shouldUseAlternateNeckPose)

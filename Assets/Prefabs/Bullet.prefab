@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 7472044805182914113}
   - component: {fileID: 2803011140997321830}
   - component: {fileID: 7752823521266167194}
-  m_Layer: 7
+  m_Layer: 20
   m_Name: Bullet
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -109,7 +109,7 @@ SphereCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
@@ -125,8 +125,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6bf0d14730aed3c44aae101765b82116, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StraightProjectile
-  speed: 50
-  lifeTime: 3
+  trajectoryMode: 1
+  speed: 25
+  gravityAcceleration: 25
+  lifeTime: 10
   alignRotationToDirection: 1
+  worldHitMask:
+    serializedVersion: 2
+    m_Bits: 65792
+  collisionRadius: 0.04
+  destroyOnWorldHit: 1
+  enemyHurtboxMask:
+    serializedVersion: 2
+    m_Bits: 262144
+  destroyOnEnemyHit: 1
   lockWorldZ: 1
   worldZ: 0
