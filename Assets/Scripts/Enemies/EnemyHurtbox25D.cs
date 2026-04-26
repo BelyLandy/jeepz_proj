@@ -6,6 +6,7 @@ public sealed class EnemyHurtbox25D : MonoBehaviour
     [SerializeField] private EnemyHealth25D health;
     [SerializeField] private EnemyStun25D stun;
     [SerializeField] private EnemyKnockbackReceiver25D knockback;
+    [SerializeField] private EnemyCharacter25D character;
 
     [Header("Default Projectile Response")]
     [SerializeField, Min(0f)] private float defaultProjectileDamage = 10f;
@@ -22,6 +23,7 @@ public sealed class EnemyHurtbox25D : MonoBehaviour
     public EnemyHealth25D Health => health;
     public EnemyStun25D Stun => stun;
     public EnemyKnockbackReceiver25D Knockback => knockback;
+    public EnemyCharacter25D Character => character;
 
     private void Reset()
     {
@@ -39,6 +41,60 @@ public sealed class EnemyHurtbox25D : MonoBehaviour
     {
         AutoAssign();
         ClampSettings();
+    }
+
+
+    public bool ReceiveExplosionHit(Vector3 explosionCenter, float damage, float horizontalKnockback, float verticalKnockback, float stunDuration = 0f)
+    {
+        if (health == null || health.IsDead)
+            return false;
+
+        bool tookDamage = health.ApplyDamage(damage);
+        if (health.IsDead)
+            return tookDamage;
+
+        bool appliedKnockback = false;
+        if (knockback != null && (horizontalKnockback > 0f || verticalKnockback > 0f))
+            appliedKnockback = knockback.ApplyExplosionKnockback(explosionCenter, horizontalKnockback, verticalKnockback, stunDuration);
+        else if (stun != null && stunDuration > 0f)
+            stun.ApplyStun(stunDuration);
+
+        return tookDamage || appliedKnockback;
+    }
+
+
+    private bool TryInterruptJumpTraversalFromProjectileHit(Vector3 hitDirection, float stunDuration)
+    {
+        if (character == null || !character.IsJumpTraversalActive)
+            return false;
+
+        EnemyJumpLink25D jumpLink = character.ActiveJumpLink;
+        if (jumpLink == null || !jumpLink.InterruptOnProjectileHit)
+            return false;
+
+        Vector3 planar = new Vector3(hitDirection.x, hitDirection.y, 0f);
+        if (planar.sqrMagnitude <= 0.0001f)
+            planar = Vector3.right;
+        else
+            planar.Normalize();
+
+        float signX = Mathf.Abs(planar.x) > 0.0001f ? Mathf.Sign(planar.x) : 1f;
+        Vector3 interruptVelocity = new Vector3(signX * jumpLink.InterruptKnockbackHorizontalForce, jumpLink.InterruptKnockbackVerticalForce, 0f);
+
+        bool appliedKnockback = false;
+        if (knockback != null)
+        {
+            character.InterruptJumpLinkTraversal(Vector3.zero);
+            appliedKnockback = knockback.ApplyKnockbackFromHit(planar, jumpLink.InterruptKnockbackHorizontalForce, jumpLink.InterruptKnockbackVerticalForce, stunDuration);
+        }
+        else
+        {
+            appliedKnockback = character.InterruptJumpLinkTraversal(interruptVelocity);
+            if (stun != null && stunDuration > 0f)
+                stun.ApplyStun(stunDuration);
+        }
+
+        return appliedKnockback;
     }
 
     public bool ReceiveProjectileHit(Vector3 hitDirection)
@@ -60,6 +116,9 @@ public sealed class EnemyHurtbox25D : MonoBehaviour
 
         if (health.IsDead)
             return tookDamage;
+
+        if (TryInterruptJumpTraversalFromProjectileHit(hitDirection, stunDuration))
+            return true;
 
         bool appliedKnockback = false;
         if (knockback != null)
@@ -96,6 +155,8 @@ public sealed class EnemyHurtbox25D : MonoBehaviour
             stun = GetComponentInParent<EnemyStun25D>();
         if (knockback == null)
             knockback = GetComponentInParent<EnemyKnockbackReceiver25D>();
+        if (character == null)
+            character = GetComponentInParent<EnemyCharacter25D>();
     }
 
     private void ClampSettings()

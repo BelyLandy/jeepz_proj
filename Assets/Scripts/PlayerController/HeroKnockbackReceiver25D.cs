@@ -85,6 +85,34 @@ public sealed class HeroKnockbackReceiver25D : MonoBehaviour
             crouch = GetComponent<CharacterCrouch25D>();
     }
 
+
+    public bool ApplyExplosionKnockback(Vector3 explosionCenter, float horizontalForce, float verticalForce)
+    {
+        if (heroRb == null || heroRb.isKinematic || character == null)
+            return false;
+
+        float dx = transform.position.x - explosionCenter.x;
+        float horizontalSign = Mathf.Abs(dx) > Epsilon
+            ? Mathf.Sign(dx)
+            : character.VaultFacingSignFromInput;
+        if (Mathf.Abs(horizontalSign) <= Epsilon)
+            horizontalSign = 1f;
+
+        Vector3 knockbackVelocity = new Vector3(
+            Mathf.Max(0f, horizontalForce) * horizontalSign,
+            Mathf.Max(0f, verticalForce),
+            0f);
+
+        character.SetLockStanceHeld(false);
+        if (crouch != null)
+            crouch.ForceExitCrouchFromHit();
+
+        character.ResetMotionForExternalHit(clearInput: true, clearCurrentWallSlide: true);
+        heroRb.linearVelocity = knockbackVelocity;
+        ApplyControlLockForKnockback(useDiagonal: true, suppressTraversal: true);
+        return true;
+    }
+
     public bool ApplyProjectileHit(Vector3 projectileDirection)
     {
         if (heroRb == null || heroRb.isKinematic || character == null)

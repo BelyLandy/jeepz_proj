@@ -32,12 +32,22 @@ public sealed class EnemyProjectile25D : MonoBehaviour
     [Header("Hit Behaviour")]
     [SerializeField] private bool destroyOnHeroHit = true;
 
+    [Header("Explosion")]
+    [SerializeField] private bool useExplosion = false;
+    [SerializeField] private Explosion25D explosionPrefab;
+    [SerializeField] private bool explodeOnImpact = true;
+    [SerializeField] private bool explodeOnLifetimeEnd = true;
+    [SerializeField, Min(0f)] private float explodeAfterImpactDelay = 0f;
+
     private Vector3 currentVelocity = Vector3.right;
     private Vector3 previousPosition;
     private Transform ownerRoot;
     private float age;
     private bool isInitialized;
     private bool hasImpacted;
+    private bool hasDetonated;
+    private bool impactDetonationScheduled;
+    private float impactDetonationTime;
 
     public Vector3 Direction => currentVelocity.sqrMagnitude > 0.0001f ? currentVelocity.normalized : Vector3.right;
     public float Speed => speed;
@@ -49,6 +59,9 @@ public sealed class EnemyProjectile25D : MonoBehaviour
     {
         age = 0f;
         hasImpacted = false;
+        hasDetonated = false;
+        impactDetonationScheduled = false;
+        impactDetonationTime = 0f;
         previousPosition = transform.position;
     }
 
@@ -65,11 +78,22 @@ public sealed class EnemyProjectile25D : MonoBehaviour
         lifeTime = Mathf.Max(0f, lifeTime);
         damage = Mathf.Max(0, damage);
         collisionRadius = Mathf.Max(0f, collisionRadius);
+        explodeAfterImpactDelay = Mathf.Max(0f, explodeAfterImpactDelay);
     }
 
     private void Update()
     {
-        if (!isInitialized || hasImpacted)
+        if (!isInitialized || hasDetonated)
+            return;
+
+        if (impactDetonationScheduled)
+        {
+            if (Time.time >= impactDetonationTime)
+                Detonate();
+            return;
+        }
+
+        if (hasImpacted)
             return;
 
         float dt = Time.deltaTime;
@@ -79,7 +103,10 @@ public sealed class EnemyProjectile25D : MonoBehaviour
         age += dt;
         if (age >= lifeTime)
         {
-            DestroyProjectile();
+            if (useExplosion && explodeOnLifetimeEnd)
+                Detonate();
+            else
+                DestroyProjectile();
             return;
         }
 
@@ -118,6 +145,9 @@ public sealed class EnemyProjectile25D : MonoBehaviour
         currentVelocity.z = 0f;
         isInitialized = true;
         hasImpacted = false;
+        hasDetonated = false;
+        impactDetonationScheduled = false;
+        impactDetonationTime = 0f;
         age = 0f;
         previousPosition = transform.position;
 
@@ -193,6 +223,20 @@ public sealed class EnemyProjectile25D : MonoBehaviour
 
         transform.position = impactPosition;
 
+        if (useExplosion && explodeOnImpact)
+        {
+            if (explodeAfterImpactDelay > 0f)
+            {
+                impactDetonationScheduled = true;
+                impactDetonationTime = Time.time + explodeAfterImpactDelay;
+            }
+            else
+            {
+                Detonate();
+            }
+            return;
+        }
+
         if (destroyOnWorldHit)
             DestroyProjectile();
     }
@@ -226,7 +270,7 @@ public sealed class EnemyProjectile25D : MonoBehaviour
 
     private void HandleHit(Collider other)
     {
-        if (hasImpacted || other == null)
+        if (hasImpacted || hasDetonated || other == null)
             return;
 
         if (ownerRoot != null)
@@ -244,10 +288,34 @@ public sealed class EnemyProjectile25D : MonoBehaviour
             return;
 
         hasImpacted = true;
+
+        if (useExplosion && explodeOnImpact)
+        {
+            Detonate();
+            return;
+        }
+
         hurtbox.ReceiveProjectileHit(this);
 
         if (destroyOnHeroHit)
             DestroyProjectile();
+    }
+
+    private void Detonate()
+    {
+        if (hasDetonated)
+            return;
+
+        hasDetonated = true;
+        impactDetonationScheduled = false;
+
+        if (useExplosion && explosionPrefab != null)
+        {
+            Explosion25D explosion = Instantiate(explosionPrefab, transform.position, Quaternion.identity);
+            explosion.Explode(transform.position, ownerRoot != null ? ownerRoot.gameObject : null);
+        }
+
+        DestroyProjectile();
     }
 
     private void DestroyProjectile()

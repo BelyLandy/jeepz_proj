@@ -137,6 +137,15 @@ public sealed class EnemyKnockbackReceiver25D : MonoBehaviour
         }
     }
 
+
+    public bool ApplyExplosionKnockback(Vector3 explosionCenter, float horizontalForce, float verticalForce, float stunDuration = 0f)
+    {
+        float dx = transform.position.x - explosionCenter.x;
+        float signX = Mathf.Abs(dx) > 0.0001f ? Mathf.Sign(dx) : (character != null ? character.FacingSign : 1f);
+        Vector3 velocity = new Vector3(signX * Mathf.Max(0f, horizontalForce), Mathf.Max(0f, verticalForce), 0f);
+        return ApplyGenericKnockback(velocity, stunDuration);
+    }
+
     public bool ApplyProjectileKnockback(Vector3 hitDirection)
     {
         return ApplyKnockbackFromHit(hitDirection, defaultKnockbackHorizontal, defaultKnockbackVertical, stunOnKnockbackDuration);

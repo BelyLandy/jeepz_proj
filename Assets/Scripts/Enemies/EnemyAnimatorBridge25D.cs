@@ -9,7 +9,6 @@ public sealed class EnemyAnimatorBridge25D : MonoBehaviour
     [SerializeField] private EnemyHealth25D health;
     [SerializeField] private EnemyStun25D stun;
     [SerializeField] private EnemyKnockbackReceiver25D knockback;
-    [SerializeField] private EnemySimpleBrain25D simpleBrain;
     [SerializeField] private EnemyBrainBT25D btBrain;
     [SerializeField] private EnemyBallisticShooter25D shooter;
     [SerializeField] private EnemyGrenadeThrower25D grenadeThrower;
@@ -131,14 +130,14 @@ public sealed class EnemyAnimatorBridge25D : MonoBehaviour
     {
         if (btBrain != null)
             return btBrain.IsAlert;
-        return simpleBrain != null && simpleBrain.IsAlert;
+        return false;
     }
 
     private bool GetIsInCombat()
     {
         if (btBrain != null)
             return btBrain.IsInCombat;
-        return simpleBrain != null && simpleBrain.IsInCombat;
+        return false;
     }
 
     private bool GetIsTakingCover()
@@ -160,8 +159,6 @@ public sealed class EnemyAnimatorBridge25D : MonoBehaviour
             stun = GetComponent<EnemyStun25D>();
         if (knockback == null)
             knockback = GetComponent<EnemyKnockbackReceiver25D>();
-        if (simpleBrain == null)
-            simpleBrain = GetComponent<EnemySimpleBrain25D>();
         if (btBrain == null)
             btBrain = GetComponent<EnemyBrainBT25D>();
         if (shooter == null)

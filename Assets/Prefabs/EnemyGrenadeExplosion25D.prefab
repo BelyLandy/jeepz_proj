@@ -1,0 +1,72 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &3116428636831079090
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 258315243486313334}
+  - component: {fileID: 4413980968781295390}
+  m_Layer: 0
+  m_Name: EnemyGrenadeExplosion25D
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &258315243486313334
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3116428636831079090}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 51.38659, y: 2.84413, z: 0.75074}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4413980968781295390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3116428636831079090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ccc08b273b4e6242a0538c795195050, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Explosion25D
+  explosionRadius: 6
+  baseExplosionDamage: 30
+  minDamageMultiplier: 0.4
+  maxDamageMultiplier: 1
+  minKnockbackMultiplier: 0.6
+  maxKnockbackMultiplier: 1.25
+  applyKnockback: 1
+  baseKnockbackHorizontalForce: 20
+  baseKnockbackVerticalForce: 12
+  overlapMask:
+    serializedVersion: 2
+    m_Bits: 2171136
+  affectHero: 1
+  affectEnemies: 0
+  affectOwner: 0
+  useFriendlyFire: 0
+  requireLineOfEffect: 0
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
+  explosionVfxPrefab: {fileID: 0}
+  explosionSfx: {fileID: 8300000, guid: cfe51354ef164544db2003e5ae3aa9de, type: 3}
+  vfxLifetime: 3
+  destroySelfAfterExplode: 1
+  drawExplosionRadiusGizmos: 1
+  explosionRadiusGizmoColor: {r: 1, g: 0.4, b: 0.1, a: 0.5}

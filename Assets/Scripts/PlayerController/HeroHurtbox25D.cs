@@ -36,6 +36,20 @@ public sealed class HeroHurtbox25D : MonoBehaviour
             heroHealth = GetComponentInParent<HeroHealth25D>();
     }
 
+
+    public bool ReceiveExplosionHit(Vector3 explosionCenter, int damageAmount, float horizontalForce, float verticalForce)
+    {
+        bool handled = false;
+
+        if (heroHealth != null && damageAmount > 0)
+            handled |= heroHealth.ApplyDamage(damageAmount);
+
+        if (knockbackReceiver != null && (horizontalForce > 0f || verticalForce > 0f))
+            handled |= knockbackReceiver.ApplyExplosionKnockback(explosionCenter, horizontalForce, verticalForce);
+
+        return handled;
+    }
+
     public bool ReceiveProjectileHit(EnemyProjectile25D projectile)
     {
         if (projectile == null)

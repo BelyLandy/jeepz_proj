@@ -132,10 +132,15 @@ MonoBehaviour:
   alignRotationToDirection: 1
   worldHitMask:
     serializedVersion: 2
-    m_Bits: 98560
+    m_Bits: 2195712
   collisionRadius: 0.04
   destroyOnWorldHit: 1
   lockWorldZ: 1
   worldZ: 0
   damage: 10
   destroyOnHeroHit: 1
+  useExplosion: 0
+  explosionPrefab: {fileID: 0}
+  explodeOnImpact: 1
+  explodeOnLifetimeEnd: 1
+  explodeAfterImpactDelay: 0

@@ -80,6 +80,8 @@ public sealed class EnemyDebugStatusLabel25D : MonoBehaviour
 
         string losText = perception != null && perception.HasLineOfSight ? "Y" : "N";
         string targetText = perception != null && perception.IsTargetVisible ? "Visible" : (hasTarget || hasTrackedPosition ? "Tracked" : "None");
+        string rearText = perception != null && (perception.IsTargetInRearAwarenessNow || perception.RearAwarenessTriggeredThisFrame) ? "Y" : "N";
+        string alertText = perception != null && perception.IsAlert ? perception.AlertRemaining.ToString("0.0") : "-";
         string primaryCooldown = shooter != null ? shooter.PrimaryCooldownRemaining.ToString("0.00") : "-";
         string grenadeCooldown = grenadeThrower != null ? grenadeThrower.GrenadeCooldownRemaining.ToString("0.0") : "-";
         string grenadeLockout = grenadeThrower != null ? grenadeThrower.GrenadeAttemptLockoutRemaining.ToString("0.0") : "-";
@@ -97,6 +99,8 @@ public sealed class EnemyDebugStatusLabel25D : MonoBehaviour
 
         if (closeRangeRepel != null)
             secondLine += $" RepCD:{repelCooldown}";
+
+        secondLine += $" Rear:{rearText} Alert:{alertText}";
 
         if (brain != null && brain.RuntimePointCount > 0)
             secondLine += $" Pts:{brain.RuntimePointProgress}/{brain.RuntimePointCount}";
