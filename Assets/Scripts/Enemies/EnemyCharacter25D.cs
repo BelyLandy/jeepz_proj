@@ -46,6 +46,26 @@ public sealed class EnemyCharacter25D : MonoBehaviour
     [SerializeField, Min(0f)] private float facingByVelocityThreshold = 0.05f;
     [SerializeField] private int startFacingSign = -1;
 
+    [Header("Temporary Facing Lock")]
+    [SerializeField] private bool allowTemporaryFacingLock = true;
+    [SerializeField] private bool clearFacingLockOnTraversal = true;
+    [SerializeField] private bool clearFacingLockOnKnockbackOrStun = true;
+    [SerializeField] private bool logTemporaryFacingLock = false;
+
+    [Header("Airborne Fall Physics")]
+    [Tooltip("Applies extra airborne gravity so passive enemy falling can be tuned close to the player fall arc. Does not run during EnemyJumpLink traversal.")]
+    [SerializeField] private bool usePlayerLikeFallPhysics = true;
+    [Tooltip("Target total downward gravity acceleration in world units/sec^2. Player default from RBCharacter25D auto-tune is about 44 for 128 px jump height at 32 PPU and 0.4265s apex time.")]
+    [SerializeField, Min(0f)] private float airborneGravity = 44f;
+    [Tooltip("Multiplier used while the enemy is moving downward.")]
+    [SerializeField, Min(0f)] private float fallingGravityMultiplier = 1f;
+    [Tooltip("Multiplier used while the enemy is moving upward after launch/knockback.")]
+    [SerializeField, Min(0f)] private float risingGravityMultiplier = 1f;
+    [SerializeField] private bool clampEnemyFallSpeed = true;
+    [SerializeField, Min(0f)] private float maxFallSpeed = 22f;
+    [SerializeField] private bool logEnemyFallPhysics = false;
+    [SerializeField, Min(0f)] private float enemyFallPhysicsLogCooldown = 0.25f;
+
     [Header("Jump Traversal")]
     [Tooltip("Reference point that follows EnemyJumpLink25D Start/End points during traversal. Usually assign the same child object as Ground Check Origin.")]
     [SerializeField] private Transform traversalReferenceOrigin;
@@ -73,6 +93,14 @@ public sealed class EnemyCharacter25D : MonoBehaviour
     private int manualFacingSign = 1;
     private float externalMoveSpeedMultiplier = 1f;
 
+    private bool temporaryFacingLockActive;
+    private int temporaryFacingLockSign;
+    private float temporaryFacingLockUntilTime;
+    private string temporaryFacingLockReason = "None";
+    private int temporaryFacingLockStartedFrame = -1;
+
+    private float lastEnemyFallPhysicsLogTime = float.NegativeInfinity;
+
     private bool isJumpTraversalActive;
     private EnemyJumpLink25D activeJumpLink;
     private float jumpTraversalElapsed;
@@ -97,6 +125,10 @@ public sealed class EnemyCharacter25D : MonoBehaviour
     public bool IsJumpTraversalActive => isJumpTraversalActive;
     public EnemyJumpLink25D ActiveJumpLink => activeJumpLink;
     public bool HasManualFacingOverride => manualFacingOverride;
+    public bool IsTemporaryFacingLockActive => temporaryFacingLockActive && Time.time < temporaryFacingLockUntilTime && temporaryFacingLockSign != 0;
+    public int TemporaryFacingLockSign => IsTemporaryFacingLockActive ? temporaryFacingLockSign : 0;
+    public string TemporaryFacingLockReason => IsTemporaryFacingLockActive ? temporaryFacingLockReason : "None";
+    public float TemporaryFacingLockRemainingTime => IsTemporaryFacingLockActive ? Mathf.Max(0f, temporaryFacingLockUntilTime - Time.time) : 0f;
     public float ExternalMoveSpeedMultiplier => externalMoveSpeedMultiplier;
     public Vector3 TraversalReferencePosition
     {
@@ -186,6 +218,7 @@ public sealed class EnemyCharacter25D : MonoBehaviour
         UpdateGroundedState();
         UpdateLandingEventState();
         UpdateVerticalSpeed();
+        ApplyAirborneFallPhysics(Time.fixedDeltaTime);
         UpdateJumpTraversalState();
 
         if (IsDead)
@@ -217,19 +250,77 @@ public sealed class EnemyCharacter25D : MonoBehaviour
     {
         stunControlLocked = locked && !IsDead;
         if (IsControlLocked)
+        {
             moveInputX = 0f;
+            if (clearFacingLockOnKnockbackOrStun)
+                ClearFacingLock("ControlLocked");
+        }
     }
 
     public void SetReactionControlLocked(bool locked)
     {
         reactionControlLocked = locked && !IsDead;
         if (IsControlLocked)
+        {
             moveInputX = 0f;
+            if (clearFacingLockOnKnockbackOrStun)
+                ClearFacingLock("ControlLocked");
+        }
     }
 
     public void ForceFacingSign(int sign)
     {
         facingSign = sign >= 0 ? 1 : -1;
+    }
+
+    public void LockFacingSign(int sign, float duration, string reason = "Unspecified")
+    {
+        if (!allowTemporaryFacingLock)
+            return;
+
+        sign = sign < 0 ? -1 : (sign > 0 ? 1 : 0);
+        if (sign == 0 || duration <= 0f)
+            return;
+
+        temporaryFacingLockActive = true;
+        temporaryFacingLockSign = sign;
+        temporaryFacingLockUntilTime = Time.time + duration;
+        temporaryFacingLockReason = string.IsNullOrEmpty(reason) ? "Unspecified" : reason;
+        temporaryFacingLockStartedFrame = Time.frameCount;
+
+        ForceFacingSign(sign);
+
+        if (logTemporaryFacingLock)
+        {
+            Debug.Log(
+                $"[EnemyCharacter25D] Temporary facing lock started\n" +
+                $"Enemy: {name}\n" +
+                $"Sign: {(sign < 0 ? "Left" : "Right")}\n" +
+                $"Duration: {duration:F2}\n" +
+                $"Reason: {temporaryFacingLockReason}", this);
+        }
+    }
+
+    public void ClearFacingLock(string reason = "Unspecified")
+    {
+        if (!temporaryFacingLockActive)
+            return;
+
+        if (logTemporaryFacingLock)
+        {
+            Debug.Log(
+                $"[EnemyCharacter25D] Temporary facing lock cleared\n" +
+                $"Enemy: {name}\n" +
+                $"PreviousSign: {(temporaryFacingLockSign < 0 ? "Left" : temporaryFacingLockSign > 0 ? "Right" : "None")}\n" +
+                $"PreviousReason: {temporaryFacingLockReason}\n" +
+                $"ClearReason: {(string.IsNullOrEmpty(reason) ? "Unspecified" : reason)}", this);
+        }
+
+        temporaryFacingLockActive = false;
+        temporaryFacingLockSign = 0;
+        temporaryFacingLockUntilTime = 0f;
+        temporaryFacingLockReason = "None";
+        temporaryFacingLockStartedFrame = -1;
     }
 
     public void SetManualFacingOverride(bool enabled, int sign)
@@ -280,6 +371,9 @@ public sealed class EnemyCharacter25D : MonoBehaviour
         Vector3 traversalReference = TraversalReferencePosition;
         if (!IsWithinTraversalStartTolerance(traversalReference, traversalStart, link))
             return false;
+
+        if (clearFacingLockOnTraversal)
+            ClearFacingLock("TraversalStarted");
 
         jumpTraversalDuration = Mathf.Max(0.05f, link.FlightTime > 0f ? link.FlightTime : fallbackJumpFlightTime);
         jumpTraversalElapsed = 0f;
@@ -502,6 +596,63 @@ public sealed class EnemyCharacter25D : MonoBehaviour
         verticalSpeed = rb != null ? rb.linearVelocity.y : 0f;
     }
 
+    private void ApplyAirborneFallPhysics(float dt)
+    {
+        if (!usePlayerLikeFallPhysics || rb == null || rb.isKinematic)
+            return;
+
+        if (isGrounded || isJumpTraversalActive || IsDead)
+            return;
+
+        float globalGravity = Mathf.Abs(Physics.gravity.y);
+        if (globalGravity < 0.0001f)
+            globalGravity = 9.81f;
+
+        Vector3 velocity = rb.linearVelocity;
+        float beforeY = velocity.y;
+        float gravityMultiplier = velocity.y <= 0f ? fallingGravityMultiplier : risingGravityMultiplier;
+        float targetGravity = Mathf.Max(0f, airborneGravity) * Mathf.Max(0f, gravityMultiplier);
+        float extraGravity = Mathf.Max(0f, targetGravity - globalGravity);
+        float appliedGravity = 0f;
+
+        if (extraGravity > 0f && dt > 0f)
+        {
+            appliedGravity = extraGravity;
+            velocity.y -= extraGravity * dt;
+        }
+
+        bool clamped = false;
+        if (clampEnemyFallSpeed && maxFallSpeed > 0f && velocity.y < -maxFallSpeed)
+        {
+            velocity.y = -maxFallSpeed;
+            clamped = true;
+        }
+
+        if (Mathf.Approximately(velocity.y, beforeY))
+            return;
+
+        rb.linearVelocity = velocity;
+        verticalSpeed = velocity.y;
+
+        if (logEnemyFallPhysics && Time.time >= lastEnemyFallPhysicsLogTime + enemyFallPhysicsLogCooldown)
+        {
+            lastEnemyFallPhysicsLogTime = Time.time;
+            Debug.Log(
+                $"[EnemyCharacter25D] Enemy fall physics applied\n" +
+                $"Enemy: {name}\n" +
+                $"Grounded: {isGrounded}\n" +
+                $"IsJumpTraversalActive: {isJumpTraversalActive}\n" +
+                $"BeforeVelocityY: {beforeY:F3}\n" +
+                $"AfterVelocityY: {velocity.y:F3}\n" +
+                $"TargetGravity: {targetGravity:F3}\n" +
+                $"BuiltInGravity: {globalGravity:F3}\n" +
+                $"AppliedExtraGravity: {appliedGravity:F3}\n" +
+                $"GravityMultiplier: {gravityMultiplier:F3}\n" +
+                $"MaxFallSpeed: {maxFallSpeed:F3}\n" +
+                $"Clamped: {clamped}", this);
+        }
+    }
+
     private void UpdateJumpTraversalState()
     {
         if (!isJumpTraversalActive || activeJumpLink == null)
@@ -566,6 +717,33 @@ public sealed class EnemyCharacter25D : MonoBehaviour
         verticalSpeed = 0f;
     }
 
+    private bool RefreshTemporaryFacingLock()
+    {
+        if (!temporaryFacingLockActive)
+            return false;
+
+        if (!allowTemporaryFacingLock || temporaryFacingLockSign == 0 || Time.time >= temporaryFacingLockUntilTime)
+        {
+            ClearFacingLock("Expired");
+            return false;
+        }
+
+        if (clearFacingLockOnTraversal && isJumpTraversalActive)
+        {
+            ClearFacingLock("TraversalStarted");
+            return false;
+        }
+
+        if (clearFacingLockOnKnockbackOrStun && IsControlLocked)
+        {
+            ClearFacingLock("ControlLocked");
+            return false;
+        }
+
+        ForceFacingSign(temporaryFacingLockSign);
+        return true;
+    }
+
     private void UpdateFacingFromVelocityOrInput()
     {
         if (manualFacingOverride)
@@ -573,6 +751,9 @@ public sealed class EnemyCharacter25D : MonoBehaviour
             facingSign = manualFacingSign >= 0 ? 1 : -1;
             return;
         }
+
+        if (RefreshTemporaryFacingLock())
+            return;
 
         if (isJumpTraversalActive)
         {
@@ -663,6 +844,11 @@ public sealed class EnemyCharacter25D : MonoBehaviour
         edgeCheckDownDistance = Mathf.Max(0f, edgeCheckDownDistance);
         edgeCheckProbeRadius = Mathf.Max(0f, edgeCheckProbeRadius);
         facingByVelocityThreshold = Mathf.Max(0f, facingByVelocityThreshold);
+        airborneGravity = Mathf.Max(0f, airborneGravity);
+        fallingGravityMultiplier = Mathf.Max(0f, fallingGravityMultiplier);
+        risingGravityMultiplier = Mathf.Max(0f, risingGravityMultiplier);
+        maxFallSpeed = Mathf.Max(0f, maxFallSpeed);
+        enemyFallPhysicsLogCooldown = Mathf.Max(0f, enemyFallPhysicsLogCooldown);
         fallbackJumpFlightTime = Mathf.Max(0.05f, fallbackJumpFlightTime);
         jumpTraversalCompletionGrace = Mathf.Max(0f, jumpTraversalCompletionGrace);
         externalMoveSpeedMultiplier = Mathf.Max(0.01f, externalMoveSpeedMultiplier);

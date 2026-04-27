@@ -80,6 +80,10 @@ public sealed class EnemyPerception25D : MonoBehaviour
     [SerializeField] private bool writeLastKnownLogsToFile = true;
     [SerializeField, Min(0f)] private float lastKnownLogCooldown = 0.1f;
 
+    [Header("Projectile Hit Last Known Debug")]
+    [SerializeField] private bool logProjectileHitLastKnown = true;
+    [SerializeField] private bool writeProjectileHitLastKnownLogsToFile = true;
+
     [Header("Eye Tracking")]
     [SerializeField, Min(0f)] private float eyeTurnSpeedDegreesPerSecond = 240f;
     [SerializeField] private float idleEyeAngleWhenFacingRight = 0f;
@@ -374,6 +378,71 @@ public sealed class EnemyPerception25D : MonoBehaviour
         isAlert = false;
         hasRecentlyLostTarget = false;
         alertEndTime = 0f;
+    }
+
+    public bool TryProjectExternalPointToLastKnownGround(Vector3 sourcePoint, out Vector3 groundedPoint)
+    {
+        return TryProjectPointToGround(sourcePoint, out groundedPoint);
+    }
+
+    public bool NotifyProjectileHitLastKnown(
+        Vector3 worldPosition,
+        string reason,
+        bool hasFacingHint,
+        int facingSign,
+        string facingSource,
+        bool projectToGround = true)
+    {
+        Vector3 finalPosition = worldPosition;
+        bool projectedToGround = false;
+
+        if (projectToGround && TryProjectPointToGround(worldPosition, out Vector3 projectedPosition))
+        {
+            finalPosition = projectedPosition;
+            projectedToGround = true;
+        }
+
+        Vector3 previousLastKnown = lastKnownTargetPosition;
+        int previousVersion = lastKnownPositionVersion;
+        bool previousHasLastKnown = hasLastKnownPosition;
+        string finalReason = string.IsNullOrEmpty(reason) ? "ProjectileHit" : reason;
+        string finalFacingSource = hasFacingHint
+            ? (string.IsNullOrEmpty(facingSource) ? "ProjectileHit" : facingSource)
+            : "None";
+
+        UpdateLastKnownTargetMemory(
+            finalPosition,
+            false,
+            finalReason,
+            hasFacingHint,
+            facingSign,
+            finalFacingSource,
+            hasFacingHint ? "StrictFacing" : "None");
+
+        hasTrackedTarget = true;
+        hasRecentlyLostTarget = true;
+        lastTargetLostTime = Time.time;
+        BeginAlertState();
+
+        if (projectedToGround)
+        {
+            MarkLastKnownGroundProjectionDebug(worldPosition, finalPosition);
+            lastKnownResolvedFromGroundProjection = true;
+        }
+
+        LogProjectileHitLastKnownDebug(
+            finalReason,
+            previousHasLastKnown,
+            previousLastKnown,
+            previousVersion,
+            finalPosition,
+            worldPosition,
+            projectedToGround,
+            hasFacingHint,
+            facingSign,
+            finalFacingSource);
+
+        return true;
     }
 
     private void ResolveTargetReference()
@@ -1561,6 +1630,44 @@ public sealed class EnemyPerception25D : MonoBehaviour
             LogLastKnownFacingHintDebug(reason, targetPos);
     }
 
+    private void LogProjectileHitLastKnownDebug(
+        string reason,
+        bool previousHasLastKnown,
+        Vector3 previousLastKnown,
+        int previousVersion,
+        Vector3 newLastKnown,
+        Vector3 sourcePosition,
+        bool projectedToGround,
+        bool hasFacingHint,
+        int facingSign,
+        string facingSource)
+    {
+        if (!logProjectileHitLastKnown)
+            return;
+
+        StringBuilder sb = new StringBuilder(768);
+        sb.AppendLine("[EnemyPerception25D] Projectile hit updated LastKnown");
+        sb.AppendLine($"Enemy: {name}");
+        sb.AppendLine($"Reason: {reason}");
+        sb.AppendLine($"SourcePosition: {FormatVector3ForLog(sourcePosition)}");
+        sb.AppendLine($"ProjectedToGround: {projectedToGround}");
+        sb.AppendLine($"PreviousHasLastKnown: {previousHasLastKnown}");
+        sb.AppendLine($"PreviousLastKnown: {FormatVector3ForLog(previousLastKnown)}");
+        sb.AppendLine($"PreviousVersion: {previousVersion}");
+        sb.AppendLine($"NewLastKnown: {FormatVector3ForLog(newLastKnown)}");
+        sb.AppendLine($"NewVersion: {lastKnownPositionVersion}");
+        sb.AppendLine($"TargetVisible: {targetVisible}");
+        sb.AppendLine($"HasFacingHint: {hasFacingHint}");
+        sb.AppendLine($"FacingSign: {(hasFacingHint ? FormatFacingSignForLog(facingSign) : "None")}");
+        sb.AppendLine($"FacingSource: {facingSource}");
+
+        bool previousWriteSetting = writeLastKnownLogsToFile;
+        if (writeProjectileHitLastKnownLogsToFile)
+            writeLastKnownLogsToFile = true;
+        WriteLastKnownDebugLog("PerceptionProjectileHitLastKnown", sb.ToString(), true, true);
+        writeLastKnownLogsToFile = previousWriteSetting;
+    }
+
     private void LogTargetGroundedDetectionDebug(Vector3 targetPosition, bool stateFound, bool grounded, string source)
     {
         if (!logTargetGroundedDetection)
@@ -1753,6 +1860,11 @@ public sealed class EnemyPerception25D : MonoBehaviour
             case "AirborneProjectedToGround":
             case "AirborneProjectionFailedUsingSnapshot":
             case "AirborneImmediateProjectionFailedUsingSnapshot":
+            case "ProjectileHitAttackerGrounded":
+            case "ProjectileHitAttackerRaw":
+            case "ProjectileHitShotOrigin":
+            case "ProjectileHitDirectionProbe":
+            case "ProjectileHitPositionOnly":
                 return true;
             default:
                 return false;

@@ -12,9 +12,13 @@ public sealed class EnemyHealth25D : MonoBehaviour
     private int lastHitEventVersion;
     private int lastDeathEventVersion;
 
+    public event System.Action<float, float> HealthChanged;
+    public event System.Action Died;
+
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
     public float HealthNormalized => maxHealth > 0f ? Mathf.Clamp01(currentHealth / maxHealth) : 0f;
+    public float Health01 => HealthNormalized;
     public bool IsDead => isDead;
     public int LastHitEventVersion => lastHitEventVersion;
     public int LastDeathEventVersion => lastDeathEventVersion;
@@ -43,6 +47,7 @@ public sealed class EnemyHealth25D : MonoBehaviour
         {
             currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
             isDead = currentHealth <= 0f;
+            RaiseHealthChanged();
         }
     }
 
@@ -54,13 +59,22 @@ public sealed class EnemyHealth25D : MonoBehaviour
         float before = currentHealth;
         currentHealth = Mathf.Clamp(currentHealth - amount, 0f, maxHealth);
 
-        if (currentHealth < before)
-            lastHitEventVersion++;
+        bool changed = currentHealth < before;
+        if (!changed)
+            return false;
+
+        lastHitEventVersion++;
 
         if (currentHealth <= 0f)
+        {
             Kill();
+        }
+        else
+        {
+            RaiseHealthChanged();
+        }
 
-        return currentHealth < before;
+        return true;
     }
 
     public float Heal(float amount)
@@ -70,7 +84,12 @@ public sealed class EnemyHealth25D : MonoBehaviour
 
         float before = currentHealth;
         currentHealth = Mathf.Clamp(currentHealth + amount, 0f, maxHealth);
-        return currentHealth - before;
+        float healed = currentHealth - before;
+
+        if (healed > 0f)
+            RaiseHealthChanged();
+
+        return healed;
     }
 
     public void Kill()
@@ -81,6 +100,9 @@ public sealed class EnemyHealth25D : MonoBehaviour
         isDead = true;
         currentHealth = 0f;
         lastDeathEventVersion++;
+
+        RaiseHealthChanged();
+        Died?.Invoke();
     }
 
     public void ResetHealthToMax()
@@ -88,6 +110,7 @@ public sealed class EnemyHealth25D : MonoBehaviour
         ClampSettings();
         currentHealth = maxHealth;
         isDead = false;
+        RaiseHealthChanged();
     }
 
     private void InitializeHealth()
@@ -104,5 +127,10 @@ public sealed class EnemyHealth25D : MonoBehaviour
     {
         maxHealth = Mathf.Max(1f, maxHealth);
         currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
+    }
+
+    private void RaiseHealthChanged()
+    {
+        HealthChanged?.Invoke(currentHealth, maxHealth);
     }
 }

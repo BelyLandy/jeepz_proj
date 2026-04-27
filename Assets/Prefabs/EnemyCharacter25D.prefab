@@ -1,5 +1,78 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &559484973323983740
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3954060366038635958}
+  - component: {fileID: 1040012696043329529}
+  - component: {fileID: 255437386009219719}
+  m_Layer: 23
+  m_Name: HeroSlowZone
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3954060366038635958
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 559484973323983740}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6846966988732338019}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!136 &1040012696043329529
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 559484973323983740}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2.7
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &255437386009219719
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 559484973323983740}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a438f7e651e67d4ba0b9cec78e0664b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyHeroSlowZone25D
+  movementSpeedMultiplier: 0.4
+  affectOnlyPlayer: 1
+  playerTag: Player
+  requireRBCharacter25D: 1
+  logSlowZoneEvents: 0
 --- !u!1 &1695239179837359074
 GameObject:
   m_ObjectHideFlags: 0
@@ -269,10 +342,17 @@ MonoBehaviour:
   stun: {fileID: 7836012513590003485}
   knockback: {fileID: 5442614492193804649}
   character: {fileID: 4532093350157795041}
-  defaultProjectileDamage: 10
-  defaultProjectileStunDuration: 0.2
-  defaultProjectileKnockbackHorizontal: 5
-  defaultProjectileKnockbackVertical: 1.5
+  perception: {fileID: 2696084929913939624}
+  brain: {fileID: 5471633554010759881}
+  reactToPlayerProjectileHits: 1
+  enterCombatOnProjectileHitIfTargetVisible: 1
+  updateLastKnownFromProjectileHit: 1
+  beginSearchFromProjectileHitWhenTargetNotVisible: 1
+  projectileHitAwarenessSource: 0
+  projectileHitDirectionProbeDistance: 8
+  forceFaceProjectileHitSource: 1
+  logProjectileHitAwareness: 1
+  writeProjectileHitAwarenessLogsToFile: 1
   defaultHeavyMeleeDamage: 20
   defaultHeavyLaunchHorizontal: 12
   defaultHeavyLaunchVertical: 6
@@ -541,6 +621,8 @@ GameObject:
   - component: {fileID: 1901397552561243248}
   - component: {fileID: 3694626361782317714}
   - component: {fileID: 6759249346433447162}
+  - component: {fileID: 8570183651964763299}
+  - component: {fileID: 1983355481531720350}
   m_Layer: 19
   m_Name: EnemyCharacter25D
   m_TagString: Untagged
@@ -565,13 +647,13 @@ Transform:
   - {fileID: 1160199434834910189}
   - {fileID: 3631189721283735749}
   - {fileID: 7715773903408453187}
-  - {fileID: 3689959867911358232}
   - {fileID: 8039720378603117241}
   - {fileID: 761503134077938345}
   - {fileID: 3234261196112497403}
   - {fileID: 6380510311809758186}
   - {fileID: 8393946042379951230}
   - {fileID: 5105613752523789987}
+  - {fileID: 3954060366038635958}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &324607754495893831
@@ -666,6 +748,18 @@ MonoBehaviour:
   edgeProbeHitPointColor: {r: 0.35, g: 0.85, b: 1, a: 0.95}
   facingByVelocityThreshold: 0.05
   startFacingSign: -1
+  allowTemporaryFacingLock: 1
+  clearFacingLockOnTraversal: 1
+  clearFacingLockOnKnockbackOrStun: 1
+  logTemporaryFacingLock: 1
+  usePlayerLikeFallPhysics: 1
+  airborneGravity: 44
+  fallingGravityMultiplier: 1
+  risingGravityMultiplier: 1
+  clampEnemyFallSpeed: 1
+  maxFallSpeed: 22
+  logEnemyFallPhysics: 0
+  enemyFallPhysicsLogCooldown: 0.25
   traversalReferenceOrigin: {fileID: 3631189721283735749}
   fallbackJumpFlightTime: 0.55
   jumpTraversalCompletionGrace: 0.05
@@ -820,6 +914,8 @@ MonoBehaviour:
   logPendingAirborneLastKnown: 1
   writeLastKnownLogsToFile: 1
   lastKnownLogCooldown: 0.1
+  logProjectileHitLastKnown: 1
+  writeProjectileHitLastKnownLogsToFile: 1
   eyeTurnSpeedDegreesPerSecond: 240
   idleEyeAngleWhenFacingRight: 0
   idleEyeAngleWhenFacingLeft: 180
@@ -941,6 +1037,24 @@ MonoBehaviour:
   dynamicPointWalkabilityProbeHeight: 0.75
   dynamicPointWalkabilityProbeDepth: 1.5
   dynamicRegenerateMinAirborneTime: 0.12
+  requireDynamicWalkPointEdgeClearance: 1
+  dynamicWalkPointMinEdgeClearance: 1
+  dynamicWalkPointEdgeProbeUpOffset: 0.5
+  dynamicWalkPointEdgeProbeDownDistance: 1.5
+  dynamicWalkPointMaxGroundHeightDelta: 0.25
+  applyDynamicWalkEdgeClearanceToSearchSidePoints: 1
+  applyDynamicWalkEdgeClearanceToDynamicPatrolPoints: 1
+  applyDynamicWalkEdgeClearanceToLocalFallbackPoints: 1
+  warnWhenLastKnownInvestigationPointNearEdge: 1
+  logRejectedDynamicWalkPointEdgeClearance: 1
+  writeDynamicWalkPointEdgeClearanceLogsToFile: 1
+  adjustUnsafeLastKnownInvestigationPoint: 1
+  lastKnownSafeAdjustmentMaxDistance: 2
+  lastKnownSafeAdjustmentStep: 0.25
+  preferLastKnownSafeAdjustmentAwayFromMissingGround: 1
+  preserveOriginalLastKnownForDebug: 1
+  logLastKnownSafeAdjustment: 1
+  writeLastKnownSafeAdjustmentLogsToFile: 1
   searchFacingDeadZone: 0.05
   searchRecoveryRetryDelay: 0.3
   searchRecoveryMinCommitTime: 0.35
@@ -975,7 +1089,7 @@ MonoBehaviour:
   requireJumpLinkForCrossPlatformCombatMovement: 1
   combatNavigationSamePlatformVerticalTolerance: 0.75
   holdPlatformWhenCombatJumpLinkUnavailable: 1
-  logCombatPlatformNavigation: 0
+  logCombatPlatformNavigation: 1
   writeCombatPlatformNavigationLogsToFile: 1
   logCombatJumpLinkDiagnostics: 1
   logCombatJumpLinkRejectedCandidates: 1
@@ -1010,6 +1124,15 @@ MonoBehaviour:
   logSearchFacingHintRetargetIgnoredDetails: 1
   writeSearchFacingHintDiagnosticsToFile: 1
   searchFacingHintDiagnosticCooldown: 0.15
+  allowSearchFacingReapplyForNewLastKnownVersion: 1
+  updateCurrentSearchPointFacingOnVisibleTargetIgnoredRetarget: 1
+  logSearchFacingVersionedApply: 1
+  lockSearchFacingHintOnArrival: 1
+  searchFacingHintLockDuration: 0.65
+  clearSearchFacingLockOnSearchExit: 1
+  clearSearchFacingLockOnSearchRetarget: 0
+  logSearchFacingHintLock: 1
+  writeSearchFacingHintLockLogsToFile: 1
   logSearchAnchorProjection: 1
   writeSearchAnchorProjectionLogsToFile: 1
   suppressRepeatedSearchAnchorProjectionLogs: 1
@@ -1025,6 +1148,18 @@ MonoBehaviour:
   searchEmptyEmergencyWaitTime: 0.65
   logSearchEmptyRecovery: 1
   writeSearchEmptyRecoveryLogsToFile: 1
+  enableSquadPanicFlee: 1
+  squadPanicMinFleeDistance: 2.5
+  squadPanicPreferredFleeDistance: 5
+  squadPanicMaxFleeDistance: 7
+  squadPanicFleeTargetSearchStep: 0.5
+  squadPanicReachedDistance: 0.35
+  squadPanicEndWaitTime: 0.2
+  squadPanicCanInterruptCombat: 1
+  squadPanicCanInterruptSearch: 1
+  squadPanicCanInterruptPatrol: 1
+  squadPanicDoNotInterruptJumpTraversal: 1
+  logSquadPanicFlee: 1
   drawNavigationGizmos: 1
   drawCurrentTargetPoint: 1
   drawGeneratedDynamicPoints: 1
@@ -1139,7 +1274,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4572678643786355500}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 79d90b40cabf7324bb85f5826a8423a1, type: 3}
   m_Name: 
@@ -1156,57 +1291,80 @@ MonoBehaviour:
   requireLineOfSightForRepel: 0
   repelHorizontalForce: 10
   repelVerticalLift: 1.5
---- !u!1 &4763427143330374005
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 3689959867911358232}
-  - component: {fileID: 67990507218642659}
-  m_Layer: 0
-  m_Name: HealthBar
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &3689959867911358232
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4763427143330374005}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 6846966988732338019}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &67990507218642659
+--- !u!114 &8570183651964763299
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4763427143330374005}
+  m_GameObject: {fileID: 4572678643786355500}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fa45159efc995df43b7f4bc0adf26190, type: 3}
+  m_Script: {fileID: 11500000, guid: 8d8aee4f9123bc14e9ee753ee597427d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyHealthBarUI25D
-  health: {fileID: 0}
-  worldAnchor: {fileID: 0}
-  slider: {fileID: 0}
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyHealthBarPresenter25D
+  health: {fileID: 4748573212409463919}
+  healthBarPrefab: {fileID: 1129471867787673790, guid: 2391f74d187dff84c99c00f24dc36c79, type: 3}
+  followTarget: {fileID: 6846966988732338019}
+  localOffset: {x: 0, y: 1.5, z: 0}
+  parentToFollowTarget: 1
+  keepWorldRotation: 1
+  compensateNegativeParentScale: 1
+  showAlways: 1
+  hideWhenFull: 1
+  showWhenDamaged: 1
+  showOnDamageDuration: 2
+  hideOnDeath: 1
+  destroyOnDeath: 1
+  destroyOnDeathDelay: 0
+  fillPivotName: FillPivot
+  fillSpriteName: FillSprite
+  backgroundSpriteName: BackgroundSprite
+  borderSpriteName: BorderSprite
+  fillPivot: {fileID: 0}
+  backgroundRenderer: {fileID: 0}
+  fillRenderer: {fileID: 0}
+  borderRenderer: {fileID: 0}
+  leaderIconSpriteName: LeaderIconSprite
+  leaderIconRenderer: {fileID: 0}
+  leaderScaleMultiplier: 1.25
+  showAlwaysWhenLeader: 1
+  applyAlwaysOnTopMaterial: 1
+  alwaysOnTopMaterial: {fileID: 2100000, guid: 60cbae300883e664390fb11560d6d2d3, type: 2}
+  setLightingOffOnHealthBar: 0
+  applySortingOverride: 1
+  sortingLayerName: Default
+  baseSortingOrder: 5000
+  backgroundSortingOffset: 1
+  fillSortingOffset: 2
+  borderSortingOffset: 0
+  leaderIconSortingOffset: 0
+  faceCamera: 1
   targetCamera: {fileID: 0}
-  parentCanvas: {fileID: 0}
-  worldOffset: {x: 0, y: 1.5, z: 0}
-  hideWhenDead: 0
+  useTaggedCameraFallback: 1
+  targetCameraTag: QuadCamera
+  useMainCameraFallback: 0
+  hideWhenBehindCamera: 1
+  detachFromFollowTargetForBillboard: 1
+  logMissingPrefabWarning: 1
+--- !u!114 &1983355481531720350
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4572678643786355500}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98ac79d9da2d3c64280771bb925e5553, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemySquadMember25D
+  squad: {fileID: 0}
+  health: {fileID: 4748573212409463919}
+  healthBarPresenter: {fileID: 8570183651964763299}
+  brain: {fileID: 5471633554010759881}
+  perception: {fileID: 2696084929913939624}
+  logMemberEvents: 0
 --- !u!1 &5520744463080690583
 GameObject:
   m_ObjectHideFlags: 0

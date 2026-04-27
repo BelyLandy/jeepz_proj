@@ -177,15 +177,52 @@ public sealed class EnemyKnockbackReceiver25D : MonoBehaviour
         if (enemyRb == null || enemyRb.isKinematic || (health != null && health.IsDead))
             return false;
 
-        Vector2 planar = new Vector2(hitDirection.x, hitDirection.y);
-        if (planar.sqrMagnitude <= 0.0001f)
-            planar = Vector2.right;
-        else
-            planar.Normalize();
-
-        float signX = Mathf.Abs(planar.x) > 0.0001f ? Mathf.Sign(planar.x) : 1f;
+        float signX = ResolveHitDirectionSignX(hitDirection);
         Vector3 velocity = new Vector3(signX * Mathf.Max(0f, horizontalForce), Mathf.Max(0f, verticalForce), 0f);
         return ApplyGenericKnockback(velocity, stunDuration);
+    }
+
+    public bool ApplyHorizontalKnockbackFromHit(Vector3 hitDirection, float horizontalForce, float stunDuration, bool preserveVerticalVelocity = true)
+    {
+        if (enemyRb == null || enemyRb.isKinematic || (health != null && health.IsDead))
+            return false;
+
+        horizontalForce = Mathf.Max(0f, horizontalForce);
+        stunDuration = Mathf.Max(0f, stunDuration);
+
+        if (horizontalForce <= 0f && stunDuration <= 0f)
+            return false;
+
+        float signX = ResolveHitDirectionSignX(hitDirection);
+        Vector3 currentVelocity = enemyRb.linearVelocity;
+        Vector3 horizontalVelocity = new Vector3(signX * horizontalForce, 0f, 0f);
+        Vector3 nextVelocity;
+
+        if (overrideExistingVelocity)
+        {
+            nextVelocity = currentVelocity;
+            nextVelocity.x = horizontalVelocity.x;
+            if (!preserveVerticalVelocity)
+                nextVelocity.y = 0f;
+            nextVelocity.z = 0f;
+        }
+        else
+        {
+            nextVelocity = currentVelocity + horizontalVelocity;
+            if (!preserveVerticalVelocity)
+                nextVelocity.y = 0f;
+            nextVelocity.z = 0f;
+        }
+
+        enemyRb.linearVelocity = nextVelocity;
+
+        if (character != null && Mathf.Abs(horizontalVelocity.x) > 0.01f)
+            character.ForceFacingSign(horizontalVelocity.x >= 0f ? 1 : -1);
+
+        if (stun != null && stunDuration > 0f)
+            stun.ApplyStun(stunDuration);
+
+        return true;
     }
 
     public bool ApplyHeavyLaunch(Vector3 hitDirection)
@@ -268,6 +305,17 @@ public sealed class EnemyKnockbackReceiver25D : MonoBehaviour
 
         lastImpactEventVersion++;
         earliestRecoveryTime = Time.time + groundedRecoveryDelay;
+    }
+
+    private float ResolveHitDirectionSignX(Vector3 hitDirection)
+    {
+        Vector2 planar = new Vector2(hitDirection.x, hitDirection.y);
+        if (planar.sqrMagnitude <= 0.0001f)
+            planar = Vector2.right;
+        else
+            planar.Normalize();
+
+        return Mathf.Abs(planar.x) > 0.0001f ? Mathf.Sign(planar.x) : 1f;
     }
 
     private void ApplyImpactDamage(float impactSpeed, float threshold, float multiplier)

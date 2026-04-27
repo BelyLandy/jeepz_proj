@@ -14,6 +14,7 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         SearchDynamic = 3,
         Combat = 4,
         Disabled = 5,
+        SquadPanicFlee = 6,
     }
 
     public enum EnemyAction25D
@@ -39,6 +40,8 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         OpenCombatMove = 18,
         OpenCombatHold = 19,
         HoldPlatformNoJumpLink = 20,
+        MoveToSquadPanicPoint = 21,
+        WaitAfterSquadPanic = 22,
     }
 
     private enum NodeStatus
@@ -70,6 +73,17 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         public readonly int FacingHintSign;
         public readonly string FacingHintMode;
         public readonly string FacingHintSource;
+        public readonly int LastKnownVersionSnapshot;
+        public readonly Vector3 LastKnownPositionSnapshot;
+        public readonly bool HasLastKnownFacingHintSnapshot;
+        public readonly int LastKnownFacingSignSnapshot;
+        public readonly string LastKnownFacingModeSnapshot;
+        public readonly string LastKnownFacingSourceSnapshot;
+        public readonly bool HasAdjustedLastKnownSafePosition;
+        public readonly Vector3 OriginalLastKnownPositionSnapshot;
+        public readonly Vector3 AdjustedLastKnownSafePosition;
+        public readonly string LastKnownSafeAdjustmentReason;
+        public readonly float LastKnownSafeAdjustmentDistance;
 
         public RuntimeSearchPoint(
             Vector3 worldPosition,
@@ -81,7 +95,18 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             bool hasFacingHint = false,
             int facingHintSign = 0,
             string facingHintMode = "None",
-            string facingHintSource = "None")
+            string facingHintSource = "None",
+            int lastKnownVersionSnapshot = -1,
+            Vector3 lastKnownPositionSnapshot = default,
+            bool hasLastKnownFacingHintSnapshot = false,
+            int lastKnownFacingSignSnapshot = 0,
+            string lastKnownFacingModeSnapshot = "None",
+            string lastKnownFacingSourceSnapshot = "None",
+            bool hasAdjustedLastKnownSafePosition = false,
+            Vector3 originalLastKnownPositionSnapshot = default,
+            Vector3 adjustedLastKnownSafePosition = default,
+            string lastKnownSafeAdjustmentReason = "None",
+            float lastKnownSafeAdjustmentDistance = 0f)
         {
             WorldPosition = worldPosition;
             WaitDuration = Mathf.Max(0f, waitDuration);
@@ -96,6 +121,17 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             FacingHintSign = facingHintSign >= 0 ? 1 : -1;
             FacingHintMode = string.IsNullOrEmpty(facingHintMode) ? "None" : facingHintMode;
             FacingHintSource = string.IsNullOrEmpty(facingHintSource) ? "None" : facingHintSource;
+            LastKnownVersionSnapshot = lastKnownVersionSnapshot;
+            LastKnownPositionSnapshot = lastKnownPositionSnapshot;
+            HasLastKnownFacingHintSnapshot = hasLastKnownFacingHintSnapshot;
+            LastKnownFacingSignSnapshot = lastKnownFacingSignSnapshot >= 0 ? 1 : -1;
+            LastKnownFacingModeSnapshot = string.IsNullOrEmpty(lastKnownFacingModeSnapshot) ? "None" : lastKnownFacingModeSnapshot;
+            LastKnownFacingSourceSnapshot = string.IsNullOrEmpty(lastKnownFacingSourceSnapshot) ? "None" : lastKnownFacingSourceSnapshot;
+            HasAdjustedLastKnownSafePosition = hasAdjustedLastKnownSafePosition;
+            OriginalLastKnownPositionSnapshot = originalLastKnownPositionSnapshot;
+            AdjustedLastKnownSafePosition = adjustedLastKnownSafePosition;
+            LastKnownSafeAdjustmentReason = string.IsNullOrEmpty(lastKnownSafeAdjustmentReason) ? "None" : lastKnownSafeAdjustmentReason;
+            LastKnownSafeAdjustmentDistance = lastKnownSafeAdjustmentDistance;
         }
 
         public RuntimeSearchPoint(
@@ -109,7 +145,18 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             bool hasFacingHint = false,
             int facingHintSign = 0,
             string facingHintMode = "None",
-            string facingHintSource = "None")
+            string facingHintSource = "None",
+            int lastKnownVersionSnapshot = -1,
+            Vector3 lastKnownPositionSnapshot = default,
+            bool hasLastKnownFacingHintSnapshot = false,
+            int lastKnownFacingSignSnapshot = 0,
+            string lastKnownFacingModeSnapshot = "None",
+            string lastKnownFacingSourceSnapshot = "None",
+            bool hasAdjustedLastKnownSafePosition = false,
+            Vector3 originalLastKnownPositionSnapshot = default,
+            Vector3 adjustedLastKnownSafePosition = default,
+            string lastKnownSafeAdjustmentReason = "None",
+            float lastKnownSafeAdjustmentDistance = 0f)
         {
             WorldPosition = worldPosition;
             WaitDuration = Mathf.Max(0f, waitDuration);
@@ -124,6 +171,17 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             FacingHintSign = facingHintSign >= 0 ? 1 : -1;
             FacingHintMode = string.IsNullOrEmpty(facingHintMode) ? "None" : facingHintMode;
             FacingHintSource = string.IsNullOrEmpty(facingHintSource) ? "None" : facingHintSource;
+            LastKnownVersionSnapshot = lastKnownVersionSnapshot;
+            LastKnownPositionSnapshot = lastKnownPositionSnapshot;
+            HasLastKnownFacingHintSnapshot = hasLastKnownFacingHintSnapshot;
+            LastKnownFacingSignSnapshot = lastKnownFacingSignSnapshot >= 0 ? 1 : -1;
+            LastKnownFacingModeSnapshot = string.IsNullOrEmpty(lastKnownFacingModeSnapshot) ? "None" : lastKnownFacingModeSnapshot;
+            LastKnownFacingSourceSnapshot = string.IsNullOrEmpty(lastKnownFacingSourceSnapshot) ? "None" : lastKnownFacingSourceSnapshot;
+            HasAdjustedLastKnownSafePosition = hasAdjustedLastKnownSafePosition;
+            OriginalLastKnownPositionSnapshot = originalLastKnownPositionSnapshot;
+            AdjustedLastKnownSafePosition = adjustedLastKnownSafePosition;
+            LastKnownSafeAdjustmentReason = string.IsNullOrEmpty(lastKnownSafeAdjustmentReason) ? "None" : lastKnownSafeAdjustmentReason;
+            LastKnownSafeAdjustmentDistance = lastKnownSafeAdjustmentDistance;
         }
     }
 
@@ -135,6 +193,49 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         public string HitObjectName;
         public int HitLayer;
         public string Reason;
+    }
+
+    private struct DynamicWalkEdgeClearanceResult
+    {
+        public bool IsSafe;
+        public string RejectReason;
+        public Vector3 Point;
+        public Vector3 CenterProbeOrigin;
+        public Vector3 LeftProbeOrigin;
+        public Vector3 RightProbeOrigin;
+        public bool CenterGroundFound;
+        public bool LeftGroundFound;
+        public bool RightGroundFound;
+        public Vector3 CenterGroundPoint;
+        public Vector3 LeftGroundPoint;
+        public Vector3 RightGroundPoint;
+        public string CenterGroundObject;
+        public string LeftGroundObject;
+        public string RightGroundObject;
+        public int CenterGroundLayer;
+        public int LeftGroundLayer;
+        public int RightGroundLayer;
+        public float LeftHeightDelta;
+        public float RightHeightDelta;
+        public float MinEdgeClearance;
+        public float MaxGroundHeightDelta;
+    }
+
+    private struct LastKnownSafeAdjustmentResult
+    {
+        public bool Adjusted;
+        public bool FoundSafePoint;
+        public string Reason;
+        public Vector3 OriginalPoint;
+        public Vector3 AdjustedPoint;
+        public float AdjustmentDistance;
+        public string OriginalUnsafeReason;
+        public string SelectedDirectionLabel;
+        public int Attempts;
+        public float MaxDistance;
+        public float Step;
+        public DynamicWalkEdgeClearanceResult OriginalEdgeResult;
+        public DynamicWalkEdgeClearanceResult AdjustedEdgeResult;
     }
 
     private struct CombatJumpLinkCandidateDebugInfo
@@ -275,6 +376,28 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
     [SerializeField, Min(0.05f)] private float dynamicPointWalkabilityProbeDepth = 1.5f;
     [SerializeField, Min(0f)] private float dynamicRegenerateMinAirborneTime = 0.12f;
 
+    [Header("Dynamic WALK Point Edge Clearance")]
+    [SerializeField] private bool requireDynamicWalkPointEdgeClearance = true;
+    [SerializeField, Min(0f)] private float dynamicWalkPointMinEdgeClearance = 1f;
+    [SerializeField, Min(0f)] private float dynamicWalkPointEdgeProbeUpOffset = 0.5f;
+    [SerializeField, Min(0f)] private float dynamicWalkPointEdgeProbeDownDistance = 1.5f;
+    [SerializeField, Min(0f)] private float dynamicWalkPointMaxGroundHeightDelta = 0.25f;
+    [SerializeField] private bool applyDynamicWalkEdgeClearanceToSearchSidePoints = true;
+    [SerializeField] private bool applyDynamicWalkEdgeClearanceToDynamicPatrolPoints = true;
+    [SerializeField] private bool applyDynamicWalkEdgeClearanceToLocalFallbackPoints = true;
+    [SerializeField] private bool warnWhenLastKnownInvestigationPointNearEdge = true;
+    [SerializeField] private bool logRejectedDynamicWalkPointEdgeClearance = true;
+    [SerializeField] private bool writeDynamicWalkPointEdgeClearanceLogsToFile = true;
+
+    [Header("LastKnown Safe Adjustment")]
+    [SerializeField] private bool adjustUnsafeLastKnownInvestigationPoint = true;
+    [SerializeField, Min(0f)] private float lastKnownSafeAdjustmentMaxDistance = 2f;
+    [SerializeField, Min(0f)] private float lastKnownSafeAdjustmentStep = 0.25f;
+    [SerializeField] private bool preferLastKnownSafeAdjustmentAwayFromMissingGround = true;
+    [SerializeField] private bool preserveOriginalLastKnownForDebug = true;
+    [SerializeField] private bool logLastKnownSafeAdjustment = true;
+    [SerializeField] private bool writeLastKnownSafeAdjustmentLogsToFile = true;
+
     [Header("Search")]
     [SerializeField, Min(0f)] private float searchFacingDeadZone = 0.05f;
     [SerializeField, Min(0f)] private float searchRecoveryRetryDelay = 0.3f;
@@ -368,6 +491,19 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
     [SerializeField] private bool writeSearchFacingHintDiagnosticsToFile = true;
     [SerializeField, Min(0f)] private float searchFacingHintDiagnosticCooldown = 0.15f;
 
+    [Header("Search Facing Hint Versioned Apply")]
+    [SerializeField] private bool allowSearchFacingReapplyForNewLastKnownVersion = true;
+    [SerializeField] private bool updateCurrentSearchPointFacingOnVisibleTargetIgnoredRetarget = true;
+    [SerializeField] private bool logSearchFacingVersionedApply = true;
+
+    [Header("Search Facing Hint Temporary Lock")]
+    [SerializeField] private bool lockSearchFacingHintOnArrival = true;
+    [SerializeField, Min(0f)] private float searchFacingHintLockDuration = 0.65f;
+    [SerializeField] private bool clearSearchFacingLockOnSearchExit = true;
+    [SerializeField] private bool clearSearchFacingLockOnSearchRetarget = false;
+    [SerializeField] private bool logSearchFacingHintLock = true;
+    [SerializeField] private bool writeSearchFacingHintLockLogsToFile = true;
+
     [Header("Search Anchor Projection Debug")]
     [SerializeField] private bool logSearchAnchorProjection = false;
     [SerializeField] private bool writeSearchAnchorProjectionLogsToFile = true;
@@ -388,6 +524,20 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
     [SerializeField, Min(0f)] private float searchEmptyEmergencyWaitTime = 0.65f;
     [SerializeField] private bool logSearchEmptyRecovery = true;
     [SerializeField] private bool writeSearchEmptyRecoveryLogsToFile = true;
+
+    [Header("Squad Panic Flee")]
+    [SerializeField] private bool enableSquadPanicFlee = true;
+    [SerializeField, Min(0f)] private float squadPanicMinFleeDistance = 2.5f;
+    [SerializeField, Min(0f)] private float squadPanicPreferredFleeDistance = 5f;
+    [SerializeField, Min(0f)] private float squadPanicMaxFleeDistance = 7f;
+    [SerializeField, Min(0f)] private float squadPanicFleeTargetSearchStep = 0.5f;
+    [SerializeField, Min(0f)] private float squadPanicReachedDistance = 0.35f;
+    [SerializeField, Min(0f)] private float squadPanicEndWaitTime = 0.2f;
+    [SerializeField] private bool squadPanicCanInterruptCombat = true;
+    [SerializeField] private bool squadPanicCanInterruptSearch = true;
+    [SerializeField] private bool squadPanicCanInterruptPatrol = true;
+    [SerializeField] private bool squadPanicDoNotInterruptJumpTraversal = true;
+    [SerializeField] private bool logSquadPanicFlee = true;
 
     [Header("Debug Gizmos")]
     [SerializeField] private bool drawNavigationGizmos = true;
@@ -546,17 +696,32 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
     private Vector3 dynamicPatrolDeadEndReturnEnd;
     private float lastDynamicPointListLogTime = float.NegativeInfinity;
     private int lastDynamicPointListLogFrame = -1;
+    private int rejectedDynamicWalkPointUnsafeEdgeCount;
+    private int warnedLastKnownInvestigationPointNearEdgeCount;
+    private int adjustedLastKnownSafePointCount;
+    private int failedLastKnownSafeAdjustmentCount;
     private float lastRejectedDynamicJumpLinkLogTime = float.NegativeInfinity;
     private int lastRejectedDynamicJumpLinkLogFrame = -1;
     private float lastCombatJumpLinkDiagnosticLogTime = float.NegativeInfinity;
     private int lastCombatJumpLinkDiagnosticLogFrame = -1;
     private string lastCombatJumpLinkDiagnosticKey = "None";
+    private bool squadPanicFleeActive;
+    private Vector3 squadPanicFleeFromPosition;
+    private Vector3 squadPanicFleeTargetPosition;
+    private float squadPanicFleeUntilTime = float.NegativeInfinity;
+    private float squadPanicWaitUntilTime = float.NegativeInfinity;
+    private string squadPanicFleeReason = "None";
+    private bool squadPanicHasTarget;
+    private BrainState previousStateBeforeSquadPanic;
+    private EnemyAction25D previousActionBeforeSquadPanic;
+
     private static bool hasLoggedEnemyDebugFilePathThisSession;
 
     public BrainState CurrentState => currentState;
     public EnemyAction25D CurrentAction => currentAction;
     public bool IsAlert => currentState == BrainState.SearchDynamic || currentState == BrainState.Combat;
     public bool IsInCombat => currentState == BrainState.Combat;
+    public bool IsInSquadPanicFlee => squadPanicFleeActive;
 
     public bool IsInActiveCombatPressure
     {
@@ -677,12 +842,14 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             closeRangeRepel.CancelRepel();
         if (character != null)
         {
+            ClearSearchFacingLockFromBrain("BrainDisabled");
             character.ClearManualFacingOverride();
             character.ResetExternalMoveSpeedMultiplier();
             character.SetAllowWalkingOffEdgesForTraversal(false);
         }
         pendingSearchFacingHintPostApplyVerification = false;
         CancelCombatJumpLinkApproach();
+        ClearSquadPanicFleeRuntime("BrainDisabled");
     }
 
     private void Update()
@@ -785,6 +952,7 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         rootNode = new SelectorNode(
             new SequenceNode(new ConditionNode(IsDead), new ActionNode(RunDeadBranch)),
             new SequenceNode(new ConditionNode(IsDisabled), new ActionNode(RunDisabledBranch)),
+            new SequenceNode(new ConditionNode(ShouldRunSquadPanicFleeBranch), new ActionNode(RunSquadPanicFleeBranch)),
             new SequenceNode(new ConditionNode(ShouldRunCombatBranch), new ActionNode(RunCombatBranch)),
             new SequenceNode(new ConditionNode(ShouldRunSearchRecoveryBranch), new ActionNode(RunDynamicSearchBranch)),
             new ActionNode(RunPatrolOrIdleBranch));
@@ -804,6 +972,358 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
     }
     private bool HasLastKnownTarget() => perception != null && perception.HasLastKnownPosition;
     private bool ShouldRunSearchRecoveryBranch() => searchRecoveryActive || HasLastKnownTarget();
+
+    private bool ShouldRunSquadPanicFleeBranch()
+    {
+        return squadPanicFleeActive && enableSquadPanicFlee;
+    }
+
+    public bool RequestSquadPanicFlee(Vector3 fleeFromPosition, float duration, string reason = "SquadPanic")
+    {
+        AutoAssign();
+
+        if (!enableSquadPanicFlee)
+        {
+            LogSquadPanicFleeSkipped("Disabled", fleeFromPosition, duration, reason);
+            return false;
+        }
+
+        if (!isActiveAndEnabled)
+            return false;
+
+        if (duration <= 0f)
+        {
+            LogSquadPanicFleeSkipped("InvalidDuration", fleeFromPosition, duration, reason);
+            return false;
+        }
+
+        if (IsDead())
+        {
+            LogSquadPanicFleeSkipped("Dead", fleeFromPosition, duration, reason);
+            return false;
+        }
+
+        if (character != null && character.IsJumpTraversalActive && squadPanicDoNotInterruptJumpTraversal)
+        {
+            LogSquadPanicFleeSkipped("JumpTraversalActive", fleeFromPosition, duration, reason);
+            return false;
+        }
+
+        if (!CanSquadPanicInterruptCurrentState())
+        {
+            LogSquadPanicFleeSkipped("CurrentStateNotInterruptible", fleeFromPosition, duration, reason);
+            return false;
+        }
+
+        if (!TryResolveSquadPanicFleeTarget(fleeFromPosition, out Vector3 fleeTarget, out string targetReason))
+        {
+            LogSquadPanicFleeSkipped("NoSafeFleeTarget", fleeFromPosition, duration, reason);
+            return false;
+        }
+
+        StartSquadPanicFlee(fleeFromPosition, fleeTarget, duration, $"{reason}:{targetReason}");
+        return true;
+    }
+
+    private bool CanSquadPanicInterruptCurrentState()
+    {
+        if (currentState == BrainState.SquadPanicFlee)
+            return true;
+
+        switch (currentState)
+        {
+            case BrainState.Combat:
+                return squadPanicCanInterruptCombat;
+
+            case BrainState.SearchDynamic:
+                return squadPanicCanInterruptSearch;
+
+            case BrainState.PatrolDynamic:
+            case BrainState.PatrolFixed:
+            case BrainState.Idle:
+                return squadPanicCanInterruptPatrol;
+
+            case BrainState.Disabled:
+                return false;
+
+            default:
+                return true;
+        }
+    }
+
+    private bool TryResolveSquadPanicFleeTarget(Vector3 fleeFromPosition, out Vector3 fleeTarget, out string targetReason)
+    {
+        fleeTarget = Vector3.zero;
+        targetReason = "None";
+
+        if (character == null)
+            return false;
+
+        Vector3 current = GetTraversalReferencePosition();
+        current.z = 0f;
+
+        int fleeSign = ResolveHorizontalSign(current.x - fleeFromPosition.x, character != null ? character.FacingSign : 1);
+        float minDistance = Mathf.Max(0f, squadPanicMinFleeDistance);
+        float preferredDistance = Mathf.Max(minDistance, squadPanicPreferredFleeDistance);
+        float maxDistance = Mathf.Max(preferredDistance, squadPanicMaxFleeDistance);
+        float step = Mathf.Max(0.1f, squadPanicFleeTargetSearchStep);
+
+        if (TryResolveSquadPanicFleeCandidate(current, fleeSign, preferredDistance, out fleeTarget, out targetReason))
+            return true;
+
+        for (float distance = minDistance; distance <= maxDistance + 0.001f; distance += step)
+        {
+            if (Mathf.Abs(distance - preferredDistance) <= 0.01f)
+                continue;
+
+            if (TryResolveSquadPanicFleeCandidate(current, fleeSign, distance, out fleeTarget, out targetReason))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool TryResolveSquadPanicFleeCandidate(Vector3 currentReference, int fleeSign, float distance, out Vector3 fleeTarget, out string targetReason)
+    {
+        fleeTarget = Vector3.zero;
+        targetReason = "None";
+
+        float targetX = currentReference.x + fleeSign * Mathf.Max(0f, distance);
+        if (!TryProjectSquadPanicFleePointToGround(targetX, currentReference, out Vector3 projectedPoint, out string rejectReason))
+        {
+            targetReason = rejectReason;
+            return false;
+        }
+
+        if (!IsNormallyReachableDynamicPoint(currentReference, projectedPoint))
+        {
+            targetReason = "NotNormallyReachable";
+            return false;
+        }
+
+        if (!IsDynamicWalkPointEdgeSafe(projectedPoint, false, out DynamicWalkEdgeClearanceResult edgeResult))
+        {
+            targetReason = "UnsafeEdge:" + edgeResult.RejectReason;
+            return false;
+        }
+
+        fleeTarget = projectedPoint;
+        targetReason = $"SafeWalkDistance{distance:0.00}";
+        LogSquadPanicFleeTargetResolved(currentReference, fleeTarget, distance, targetReason);
+        return true;
+    }
+
+    private bool TryProjectSquadPanicFleePointToGround(float targetX, Vector3 referencePosition, out Vector3 groundedPoint, out string rejectReason)
+    {
+        float rayDepth = dynamicPointRaycastDepth + dynamicPointRaycastHeight + 0.5f;
+        Vector3 rayOrigin = new Vector3(targetX, referencePosition.y + dynamicPointRaycastHeight, referencePosition.z);
+
+        if (!Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, rayDepth, dynamicPointGroundMask, QueryTriggerInteraction.Ignore))
+        {
+            groundedPoint = Vector3.zero;
+            rejectReason = "GroundMissing";
+            return false;
+        }
+
+        groundedPoint = hit.point;
+        groundedPoint.z = 0f;
+        rejectReason = "None";
+        return true;
+    }
+
+    private void StartSquadPanicFlee(Vector3 fleeFromPosition, Vector3 fleeTargetPosition, float duration, string reason)
+    {
+        previousStateBeforeSquadPanic = currentState;
+        previousActionBeforeSquadPanic = currentAction;
+
+        squadPanicFleeActive = true;
+        squadPanicFleeFromPosition = fleeFromPosition;
+        squadPanicFleeTargetPosition = fleeTargetPosition;
+        squadPanicFleeUntilTime = Time.time + Mathf.Max(0f, duration);
+        squadPanicWaitUntilTime = float.NegativeInfinity;
+        squadPanicFleeReason = string.IsNullOrWhiteSpace(reason) ? "SquadPanic" : reason;
+        squadPanicHasTarget = true;
+
+        searchRecoveryPending = false;
+        searchRecoveryRetryTime = float.NegativeInfinity;
+        if (searchRecoveryActive)
+            EndSearchRecovery(false);
+
+        ReleaseSelectedCover();
+        CancelCombatJumpLinkApproach();
+        if (grenadeThrower != null)
+        {
+            grenadeThrower.CancelPrepare();
+            grenadeThrower.CancelPostGrenadeRetreat();
+        }
+        if (closeRangeRepel != null)
+            closeRangeRepel.CancelRepel();
+
+        ClearRuntimePoints("SquadPanicFleeStarted");
+        SetState(BrainState.SquadPanicFlee);
+        currentAction = EnemyAction25D.MoveToSquadPanicPoint;
+        LogSquadPanicFleeStarted(duration);
+    }
+
+    private NodeStatus RunSquadPanicFleeBranch()
+    {
+        SetState(BrainState.SquadPanicFlee);
+        SetBranchDebugFlags();
+        ReleaseSelectedCover();
+
+        if (character == null)
+        {
+            FinishSquadPanicFlee("CharacterMissing");
+            return NodeStatus.Running;
+        }
+
+        if (!squadPanicHasTarget)
+        {
+            FinishSquadPanicFlee("NoTarget");
+            return NodeStatus.Running;
+        }
+
+        if (Time.time >= squadPanicFleeUntilTime)
+        {
+            FinishSquadPanicFlee("DurationExpired");
+            return NodeStatus.Running;
+        }
+
+        Vector3 current = GetTraversalReferencePosition();
+        float deltaX = squadPanicFleeTargetPosition.x - current.x;
+        float deltaY = squadPanicFleeTargetPosition.y - current.y;
+
+        if (Mathf.Abs(deltaX) <= squadPanicReachedDistance && Mathf.Abs(deltaY) <= dynamicPointSamePlatformVerticalTolerance)
+        {
+            currentAction = EnemyAction25D.WaitAfterSquadPanic;
+            character.StopMovement();
+
+            if (squadPanicWaitUntilTime < 0f)
+                squadPanicWaitUntilTime = Time.time + squadPanicEndWaitTime;
+
+            if (Time.time >= squadPanicWaitUntilTime)
+                FinishSquadPanicFlee("ReachedTarget");
+
+            return NodeStatus.Running;
+        }
+
+        squadPanicWaitUntilTime = float.NegativeInfinity;
+        currentAction = EnemyAction25D.MoveToSquadPanicPoint;
+        MoveTowardsX(squadPanicFleeTargetPosition.x);
+        return NodeStatus.Running;
+    }
+
+    private void FinishSquadPanicFlee(string reason)
+    {
+        if (!squadPanicFleeActive)
+            return;
+
+        LogSquadPanicFleeEnded(reason);
+        ClearSquadPanicFleeRuntime(reason);
+
+        if (character != null)
+            character.StopMovement();
+
+        ResumeNormalAIAfterSquadPanic(reason);
+    }
+
+    private void ClearSquadPanicFleeRuntime(string reason)
+    {
+        squadPanicFleeActive = false;
+        squadPanicHasTarget = false;
+        squadPanicFleeReason = "None";
+        squadPanicFleeUntilTime = float.NegativeInfinity;
+        squadPanicWaitUntilTime = float.NegativeInfinity;
+        squadPanicFleeFromPosition = Vector3.zero;
+        squadPanicFleeTargetPosition = Vector3.zero;
+    }
+
+    private void ResumeNormalAIAfterSquadPanic(string reason)
+    {
+        if (perception != null && perception.IsTargetVisible && perception.CurrentTarget != null)
+        {
+            SetState(BrainState.Combat);
+            return;
+        }
+
+        if (perception != null && perception.HasLastKnownPosition)
+        {
+            BeginSearchRecovery(perception.LastKnownTargetPosition);
+            SetState(BrainState.SearchDynamic);
+            return;
+        }
+
+        hasDynamicPatrolAnchor = false;
+        ClearRuntimePoints("SquadPanicFinished");
+        SetState(BrainState.Idle);
+    }
+
+    private void LogSquadPanicFleeStarted(float duration)
+    {
+        if (!logSquadPanicFlee)
+            return;
+
+        Debug.Log(
+            $"[EnemyBrainBT25D] Squad panic flee started\n" +
+            $"Enemy: {name}\n" +
+            $"Reason: {squadPanicFleeReason}\n" +
+            $"PreviousState: {previousStateBeforeSquadPanic}\n" +
+            $"PreviousAction: {previousActionBeforeSquadPanic}\n" +
+            $"FleeFrom: {FormatVector3ForLog(squadPanicFleeFromPosition)}\n" +
+            $"FleeTarget: {FormatVector3ForLog(squadPanicFleeTargetPosition)}\n" +
+            $"Duration: {duration:F2}\n" +
+            $"UntilTime: {squadPanicFleeUntilTime:F2}",
+            this);
+    }
+
+    private void LogSquadPanicFleeSkipped(string skipReason, Vector3 fleeFromPosition, float duration, string requestReason)
+    {
+        if (!logSquadPanicFlee)
+            return;
+
+        Debug.Log(
+            $"[EnemyBrainBT25D] Squad panic flee skipped\n" +
+            $"Enemy: {name}\n" +
+            $"SkipReason: {skipReason}\n" +
+            $"RequestReason: {requestReason}\n" +
+            $"CurrentState: {currentState}\n" +
+            $"CurrentAction: {currentAction}\n" +
+            $"FleeFrom: {FormatVector3ForLog(fleeFromPosition)}\n" +
+            $"Duration: {duration:F2}\n" +
+            $"IsTraversalActive: {(character != null && character.IsJumpTraversalActive)}",
+            this);
+    }
+
+    private void LogSquadPanicFleeEnded(string reason)
+    {
+        if (!logSquadPanicFlee)
+            return;
+
+        Debug.Log(
+            $"[EnemyBrainBT25D] Squad panic flee ended\n" +
+            $"Enemy: {name}\n" +
+            $"Reason: {reason}\n" +
+            $"FleeFrom: {FormatVector3ForLog(squadPanicFleeFromPosition)}\n" +
+            $"FleeTarget: {FormatVector3ForLog(squadPanicFleeTargetPosition)}\n" +
+            $"CurrentState: {currentState}\n" +
+            $"CurrentAction: {currentAction}",
+            this);
+    }
+
+    private void LogSquadPanicFleeTargetResolved(Vector3 currentReference, Vector3 target, float distance, string reason)
+    {
+        if (!logSquadPanicFlee)
+            return;
+
+        Debug.Log(
+            $"[EnemyBrainBT25D] Squad panic flee target resolved\n" +
+            $"Enemy: {name}\n" +
+            $"Reason: {reason}\n" +
+            $"CurrentRef: {FormatVector3ForLog(currentReference)}\n" +
+            $"Target: {FormatVector3ForLog(target)}\n" +
+            $"Distance: {distance:F2}",
+            this);
+    }
 
     private void BeginSearchRecovery(Vector3 targetPoint)
     {
@@ -837,6 +1357,122 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
 
         if (isApproachingCombatJumpLink)
             CancelCombatJumpLinkApproach();
+    }
+
+    public void NotifyProjectileHitVisibleTarget(ProjectileHitAwarenessContext context)
+    {
+        AutoAssign();
+
+        if (IsDead())
+        {
+            LogProjectileHitAwarenessBrain("VisibleTargetCombatSkippedDead", context, Vector3.zero, "Dead");
+            return;
+        }
+
+        if (character != null && character.IsJumpTraversalActive)
+        {
+            LogProjectileHitAwarenessBrain("VisibleTargetCombatSkippedTraversalActive", context, Vector3.zero, "TraversalActive");
+            return;
+        }
+
+        if (perception == null || !perception.IsTargetVisible || perception.CurrentTarget == null)
+        {
+            LogProjectileHitAwarenessBrain("VisibleTargetCombatSkippedNoVisibleTarget", context, Vector3.zero, "NoVisibleTarget");
+            return;
+        }
+
+        if (blackboard != null)
+            blackboard.MarkPlayerDetectedForever();
+
+        if (searchRecoveryActive)
+            EndSearchRecovery(false);
+
+        hasDynamicPatrolAnchor = false;
+        searchRecoveryPending = false;
+        searchRecoveryRetryTime = float.NegativeInfinity;
+        SetState(BrainState.Combat);
+        LogProjectileHitAwarenessBrain("VisibleTargetCombat", context, perception.CurrentTarget.position, "TargetVisible");
+    }
+
+    public void NotifyProjectileHitSearchRequested(Vector3 lastKnownPosition, string reason)
+    {
+        AutoAssign();
+
+        if (IsDead())
+        {
+            LogProjectileHitAwarenessBrain("SearchSkippedDead", default(ProjectileHitAwarenessContext), lastKnownPosition, reason);
+            return;
+        }
+
+        if (character != null && character.IsJumpTraversalActive)
+        {
+            LogProjectileHitAwarenessBrain("SearchSkippedTraversalActive", default(ProjectileHitAwarenessContext), lastKnownPosition, reason);
+            return;
+        }
+
+        if (perception != null && perception.IsTargetVisible && perception.CurrentTarget != null)
+        {
+            NotifyProjectileHitVisibleTarget(default(ProjectileHitAwarenessContext));
+            return;
+        }
+
+        if (blackboard != null)
+            blackboard.MarkPlayerDetectedForever();
+
+        BeginSearchRecovery(lastKnownPosition);
+        SetState(BrainState.SearchDynamic);
+        LogProjectileHitAwarenessBrain("SearchRequested", default(ProjectileHitAwarenessContext), lastKnownPosition, reason);
+    }
+
+    public void NotifyProjectileHitLocalAlert(ProjectileHitAwarenessContext context)
+    {
+        AutoAssign();
+
+        if (IsDead())
+        {
+            LogProjectileHitAwarenessBrain("LocalAlertSkippedDead", context, Vector3.zero, "Dead");
+            return;
+        }
+
+        if (character != null && character.IsJumpTraversalActive)
+        {
+            LogProjectileHitAwarenessBrain("LocalAlertSkippedTraversalActive", context, Vector3.zero, "TraversalActive");
+            return;
+        }
+
+        Vector3 localPoint = context.HasHitPosition ? context.HitPosition : transform.position;
+        if (Mathf.Abs(localPoint.x - transform.position.x) <= 0.1f)
+            localPoint.x += character != null ? -character.FacingSign * 1.5f : 1.5f;
+
+        BeginSearchRecovery(localPoint);
+        SetState(BrainState.SearchDynamic);
+        LogProjectileHitAwarenessBrain("LocalAlertFallback", context, localPoint, "NoAwarenessPoint");
+    }
+
+    private void LogProjectileHitAwarenessBrain(string eventName, ProjectileHitAwarenessContext context, Vector3 point, string reason)
+    {
+        string message =
+            $"[EnemyBrainBT25D] Projectile hit awareness\n" +
+            $"Enemy: {name}\n" +
+            $"Event: {eventName}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"Reason: {reason}\n" +
+            $"Point: {FormatVector3ForLog(point)}\n" +
+            $"TargetVisible: {(perception != null && perception.IsTargetVisible)}\n" +
+            $"HasLineOfSight: {(perception != null && perception.HasLineOfSight)}\n" +
+            $"IsJumpTraversalActive: {(character != null && character.IsJumpTraversalActive)}\n" +
+            $"AttackerRoot: {(context.AttackerRoot != null ? context.AttackerRoot.name : "None")}\n" +
+            $"HasAttackerPosition: {context.HasAttackerPosition}\n" +
+            $"AttackerPosition: {FormatVector3ForLog(context.AttackerPosition)}\n" +
+            $"HasProjectileSpawnPosition: {context.HasProjectileSpawnPosition}\n" +
+            $"ProjectileSpawnPosition: {FormatVector3ForLog(context.ProjectileSpawnPosition)}\n" +
+            $"HasHitPosition: {context.HasHitPosition}\n" +
+            $"HitPosition: {FormatVector3ForLog(context.HitPosition)}\n" +
+            $"HasHitDirection: {context.HasHitDirection}\n" +
+            $"HitDirection: {FormatVector3ForLog(context.HitDirection)}";
+
+        Debug.Log(message, this);
+        WriteEnemyDebugLogToFile("ProjectileHitAwareness", message);
     }
 
     private void EndSearchRecovery(bool clearPerceptionLastKnown)
@@ -1252,6 +1888,7 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             int previousIgnoredVersion = observedSearchLastKnownVersion;
             Vector3 ignoredTarget = perception.LastKnownTargetPosition;
             observedSearchLastKnownVersion = currentVersion;
+            TryUpdateCurrentSearchPointFacingSnapshotFromIgnoredRetarget(perception.LastKnownUpdateReason, previousIgnoredVersion, currentVersion);
             LogIgnoredSearchLastKnownRetarget(ignoredTarget, previousIgnoredVersion, currentVersion, perception.LastKnownUpdateReason);
             return;
         }
@@ -1272,6 +1909,8 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
 
         activeSearchRecoveryTarget = newTarget;
         LogSearchFacingHintReset("SearchRetarget", runtimePoints.Count, runtimePointMode);
+        if (clearSearchFacingLockOnSearchRetarget)
+            ClearSearchFacingLockFromBrain("SearchRetarget");
         CaptureActiveSearchRecoveryFacingHintFromPerception();
         searchRecoveryPending = false;
         searchRecoveryRetryTime = float.NegativeInfinity;
@@ -1330,6 +1969,7 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
                 $"\nCurrentSearchTargetFacingSign: {(hasCurrentPoint && currentPoint.HasFacingHint ? FormatFacingSignForLog(currentPoint.FacingHintSign) : "None")}" +
                 $"\nCurrentSearchTargetFacingMode: {(hasCurrentPoint ? currentPoint.FacingHintMode : "None")}" +
                 $"\nCurrentSearchTargetFacingSource: {(hasCurrentPoint ? currentPoint.FacingHintSource : "None")}" +
+                $"\nCurrentSearchTargetLastKnownVersionSnapshot: {(hasCurrentPoint ? currentPoint.LastKnownVersionSnapshot : -1)}" +
                 $"\nIgnoredLastKnownHasFacingHint: {ignoredHasFacingHint}" +
                 $"\nIgnoredLastKnownFacingSign: {(ignoredHasFacingHint ? FormatFacingSignForLog(ignoredFacingSign) : "None")}" +
                 $"\nIgnoredLastKnownFacingMode: {ignoredFacingMode}" +
@@ -1344,6 +1984,186 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
 
         if (writeSearchLastKnownRetargetsToFile)
             WriteEnemyDebugLogToFile("SearchRetargetIgnored", message);
+    }
+
+    private bool TryUpdateCurrentSearchPointFacingSnapshotFromIgnoredRetarget(string reason, int oldVersion, int newVersion)
+    {
+        if (!updateCurrentSearchPointFacingOnVisibleTargetIgnoredRetarget)
+            return false;
+
+        if (!string.Equals(reason, "VisibleTarget", StringComparison.Ordinal))
+            return false;
+
+        if (perception == null || !perception.HasLastKnownFacingHint)
+            return false;
+
+        int newFacingSign = perception.LastKnownFacingSign >= 0 ? 1 : -1;
+        if (newFacingSign == 0)
+            return false;
+
+        if (runtimePoints.Count <= 0)
+            return false;
+
+        int index = Mathf.Clamp(runtimePointIndex, 0, runtimePoints.Count - 1);
+        RuntimeSearchPoint oldPoint = runtimePoints[index];
+        if (!oldPoint.IsLastKnownInvestigationPoint)
+            return false;
+
+        int oldPointVersion = oldPoint.LastKnownVersionSnapshot;
+        int oldFacingSign = oldPoint.HasFacingHint ? oldPoint.FacingHintSign : 0;
+        string oldFacingMode = oldPoint.FacingHintMode;
+        string oldFacingSource = oldPoint.FacingHintSource;
+
+        string newFacingMode = perception.LastKnownFacingMode;
+        string newFacingSource = "IgnoredRetarget:" + perception.LastKnownFacingSource;
+        Vector3 newPositionSnapshot = perception.HasLastKnownPosition ? perception.LastKnownTargetPosition : oldPoint.LastKnownPositionSnapshot;
+
+        RuntimeSearchPoint updatedPoint = WithUpdatedSearchFacingSnapshot(
+            oldPoint,
+            true,
+            newFacingSign,
+            newFacingMode,
+            newFacingSource,
+            newVersion,
+            newPositionSnapshot,
+            true,
+            newFacingSign,
+            newFacingMode,
+            newFacingSource);
+
+        runtimePoints[index] = updatedPoint;
+        LogSearchFacingSnapshotUpdated(
+            index,
+            oldPoint,
+            updatedPoint,
+            oldVersion,
+            newVersion,
+            oldPointVersion,
+            oldFacingSign,
+            oldFacingMode,
+            oldFacingSource,
+            newFacingSign,
+            newFacingMode,
+            newFacingSource,
+            reason);
+
+        return true;
+    }
+
+    private RuntimeSearchPoint WithUpdatedSearchFacingSnapshot(
+        RuntimeSearchPoint point,
+        bool hasFacingHint,
+        int facingSign,
+        string facingMode,
+        string facingSource,
+        int lastKnownVersionSnapshot,
+        Vector3 lastKnownPositionSnapshot,
+        bool hasLastKnownFacingHintSnapshot,
+        int lastKnownFacingSignSnapshot,
+        string lastKnownFacingModeSnapshot,
+        string lastKnownFacingSourceSnapshot)
+    {
+        if (point.RequiresJumpLink && point.HasExplicitJumpTraversal)
+        {
+            return new RuntimeSearchPoint(
+                point.WorldPosition,
+                point.WaitDuration,
+                point.JumpLink,
+                point.Score,
+                point.JumpTraversalStart,
+                point.JumpTraversalEnd,
+                point.IsLastKnownInvestigationPoint,
+                hasFacingHint,
+                facingSign,
+                facingMode,
+                facingSource,
+                lastKnownVersionSnapshot,
+                lastKnownPositionSnapshot,
+                hasLastKnownFacingHintSnapshot,
+                lastKnownFacingSignSnapshot,
+                lastKnownFacingModeSnapshot,
+                lastKnownFacingSourceSnapshot,
+                point.HasAdjustedLastKnownSafePosition,
+                point.HasAdjustedLastKnownSafePosition ? lastKnownPositionSnapshot : point.OriginalLastKnownPositionSnapshot,
+                point.AdjustedLastKnownSafePosition,
+                point.LastKnownSafeAdjustmentReason,
+                point.LastKnownSafeAdjustmentDistance);
+        }
+
+        return new RuntimeSearchPoint(
+            point.WorldPosition,
+            point.WaitDuration,
+            point.RequiresJumpLink,
+            point.JumpLink,
+            point.Score,
+            point.IsLastKnownInvestigationPoint,
+            hasFacingHint,
+            facingSign,
+            facingMode,
+            facingSource,
+            lastKnownVersionSnapshot,
+            lastKnownPositionSnapshot,
+            hasLastKnownFacingHintSnapshot,
+            lastKnownFacingSignSnapshot,
+            lastKnownFacingModeSnapshot,
+            lastKnownFacingSourceSnapshot,
+            point.HasAdjustedLastKnownSafePosition,
+            point.HasAdjustedLastKnownSafePosition ? lastKnownPositionSnapshot : point.OriginalLastKnownPositionSnapshot,
+            point.AdjustedLastKnownSafePosition,
+            point.LastKnownSafeAdjustmentReason,
+            point.LastKnownSafeAdjustmentDistance);
+    }
+
+    private void LogSearchFacingSnapshotUpdated(
+        int runtimeIndex,
+        RuntimeSearchPoint oldPoint,
+        RuntimeSearchPoint updatedPoint,
+        int oldObservedVersion,
+        int newPerceptionVersion,
+        int oldPointVersion,
+        int oldFacingSign,
+        string oldFacingMode,
+        string oldFacingSource,
+        int newFacingSign,
+        string newFacingMode,
+        string newFacingSource,
+        string reason)
+    {
+        if (!logSearchFacingVersionedApply)
+            return;
+
+        string key = $"SnapshotUpdated|{runtimeIndex}|{oldPointVersion}|{newPerceptionVersion}|{oldFacingSign}|{newFacingSign}|{FormatVector3ForLog(updatedPoint.WorldPosition)}";
+        if (!ShouldLogSearchFacingHintDiagnostic(key))
+            return;
+
+        string message =
+            $"[EnemyBrainBT25D] Updated current search point facing snapshot from ignored VisibleTarget retarget\n" +
+            $"Enemy: {name}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"RuntimeIndex: {runtimeIndex}\n" +
+            $"Point: {FormatVector3ForLog(updatedPoint.WorldPosition)}\n" +
+            $"HasAdjustedLastKnownSafePosition: {updatedPoint.HasAdjustedLastKnownSafePosition}\n" +
+            $"OriginalLastKnownPositionSnapshot: {FormatVector3ForLog(updatedPoint.OriginalLastKnownPositionSnapshot)}\n" +
+            $"AdjustedLastKnownSafePosition: {FormatVector3ForLog(updatedPoint.AdjustedLastKnownSafePosition)}\n" +
+            $"LastKnownSafeAdjustmentReason: {updatedPoint.LastKnownSafeAdjustmentReason}\n" +
+            $"LastKnownSafeAdjustmentDistance: {updatedPoint.LastKnownSafeAdjustmentDistance:F2}\n" +
+            $"OldObservedVersion: {oldObservedVersion}\n" +
+            $"NewPerceptionVersion: {newPerceptionVersion}\n" +
+            $"OldPointVersion: {oldPointVersion}\n" +
+            $"NewPointVersion: {updatedPoint.LastKnownVersionSnapshot}\n" +
+            $"OldFacingSign: {(oldPoint.HasFacingHint ? FormatFacingSignForLog(oldFacingSign) : "None")}\n" +
+            $"NewFacingSign: {FormatFacingSignForLog(newFacingSign)}\n" +
+            $"OldFacingMode: {oldFacingMode}\n" +
+            $"NewFacingMode: {newFacingMode}\n" +
+            $"OldFacingSource: {oldFacingSource}\n" +
+            $"NewFacingSource: {newFacingSource}\n" +
+            $"PositionChanged: False\n" +
+            $"SearchTargetChanged: False\n" +
+            $"Reason: {reason}IgnoredRetarget";
+
+        Debug.Log(message, this);
+        if (writeSearchFacingHintDiagnosticsToFile)
+            WriteEnemyDebugLogToFile("SearchFacingSnapshotUpdated", message);
     }
 
     private bool ShouldLogIgnoredSearchLastKnownRetarget(string reason)
@@ -1645,8 +2465,15 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             float targetX = anchor.x + candidateOffsets[i];
             if (TryBuildGroundedRuntimePoint(targetX, anchor, waitDuration, false, out RuntimeSearchPoint point))
             {
-                if (ShouldMarkRuntimePointAsLastKnownInvestigation(point.WorldPosition, anchor))
+                bool isLastKnownInvestigationPoint = ShouldMarkRuntimePointAsLastKnownInvestigation(point.WorldPosition, anchor);
+                if (isLastKnownInvestigationPoint)
+                {
                     point = WithLastKnownFacingHint(point);
+                    point = AdjustLastKnownInvestigationPointIfNeeded(point, "SearchDynamicLastKnownCandidate");
+                }
+
+                if (!ValidateDynamicWalkPointEdgeClearanceBeforeAdd(point, isLastKnownInvestigationPoint, "SearchSideWalkCandidate"))
+                    continue;
 
                 runtimePoints.Add(point);
                 LogSearchFacingHintPointBuild(point, anchor, "SearchDynamic candidate", runtimePoints.Count - 1);
@@ -1865,6 +2692,9 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             float targetX = localAnchor.x + offsets[i];
             if (TryBuildGroundedRuntimePoint(targetX, localAnchor, waitDuration, false, out RuntimeSearchPoint point))
             {
+                if (!ValidateDynamicWalkPointEdgeClearanceBeforeAdd(point, false, "LocalFallbackWalkCandidate"))
+                    continue;
+
                 runtimePoints.Add(point);
                 localPointCount++;
             }
@@ -2006,7 +2836,12 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
 
             float targetX = anchor.x + candidateOffsets[i];
             if (TryBuildGroundedRuntimePoint(targetX, anchor, waitDuration, true, out RuntimeSearchPoint point))
+            {
+                if (!ValidateDynamicWalkPointEdgeClearanceBeforeAdd(point, false, "DynamicPatrolWalkCandidate"))
+                    continue;
+
                 runtimePoints.Add(point);
+            }
         }
 
         if (includeJumpLinks)
@@ -2361,6 +3196,10 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         runtimePointsAnchor = anchor;
         hasRuntimePoints = true;
         activeTraversalLink = null;
+        rejectedDynamicWalkPointUnsafeEdgeCount = 0;
+        warnedLastKnownInvestigationPointNearEdgeCount = 0;
+        adjustedLastKnownSafePointCount = 0;
+        failedLastKnownSafeAdjustmentCount = 0;
         CancelDynamicPatrolDeadEndDelay();
 
         if (mode == RuntimePointMode.Search)
@@ -2716,6 +3555,335 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         return true;
     }
 
+    private RuntimeSearchPoint AdjustLastKnownInvestigationPointIfNeeded(RuntimeSearchPoint point, string candidateSource)
+    {
+        if (!point.IsLastKnownInvestigationPoint || point.RequiresJumpLink)
+            return point;
+
+        if (!adjustUnsafeLastKnownInvestigationPoint)
+            return point;
+
+        if (!TryAdjustLastKnownInvestigationPointToSafePosition(point.WorldPosition, out Vector3 adjustedPoint, out LastKnownSafeAdjustmentResult adjustmentResult))
+        {
+            if (!adjustmentResult.FoundSafePoint && string.Equals(adjustmentResult.Reason, "NoSafePointFoundWithinMaxDistance", StringComparison.Ordinal))
+            {
+                failedLastKnownSafeAdjustmentCount++;
+                LogLastKnownSafeAdjustmentFailed(point, adjustmentResult, candidateSource);
+            }
+
+            return point;
+        }
+
+        adjustedLastKnownSafePointCount++;
+        RuntimeSearchPoint adjustedRuntimePoint = WithLastKnownSafeAdjustment(point, adjustedPoint, adjustmentResult);
+        LogLastKnownSafeAdjustment(point, adjustedRuntimePoint, adjustmentResult, candidateSource);
+        return adjustedRuntimePoint;
+    }
+
+    private bool TryAdjustLastKnownInvestigationPointToSafePosition(Vector3 originalPoint, out Vector3 adjustedPoint, out LastKnownSafeAdjustmentResult result)
+    {
+        adjustedPoint = originalPoint;
+        result = default;
+        result.Adjusted = false;
+        result.FoundSafePoint = true;
+        result.Reason = "OriginalPointAlreadySafe";
+        result.OriginalPoint = originalPoint;
+        result.AdjustedPoint = originalPoint;
+        result.OriginalUnsafeReason = "None";
+        result.SelectedDirectionLabel = "None";
+        result.MaxDistance = Mathf.Max(0f, lastKnownSafeAdjustmentMaxDistance);
+        result.Step = Mathf.Max(0f, lastKnownSafeAdjustmentStep);
+
+        if (!adjustUnsafeLastKnownInvestigationPoint)
+        {
+            result.Reason = "Disabled";
+            return false;
+        }
+
+        if (lastKnownSafeAdjustmentMaxDistance <= 0f || lastKnownSafeAdjustmentStep <= 0f)
+        {
+            result.Reason = "NoAdjustmentDistance";
+            return false;
+        }
+
+        if (IsDynamicWalkPointEdgeSafe(originalPoint, true, out DynamicWalkEdgeClearanceResult originalEdgeResult))
+        {
+            result.OriginalEdgeResult = originalEdgeResult;
+            result.Reason = "OriginalPointAlreadySafe";
+            return false;
+        }
+
+        result.OriginalEdgeResult = originalEdgeResult;
+        result.OriginalUnsafeReason = originalEdgeResult.RejectReason;
+
+        int[] signs = GetPreferredLastKnownSafeAdjustmentSigns(originalEdgeResult);
+        float step = Mathf.Max(0.01f, lastKnownSafeAdjustmentStep);
+        float maxDistance = Mathf.Max(0f, lastKnownSafeAdjustmentMaxDistance);
+        int maxSteps = Mathf.Max(1, Mathf.CeilToInt(maxDistance / step));
+        int attempts = 0;
+
+        for (int i = 1; i <= maxSteps; i++)
+        {
+            float distance = Mathf.Min(maxDistance, i * step);
+            for (int s = 0; s < signs.Length; s++)
+            {
+                int sign = signs[s] >= 0 ? 1 : -1;
+                Vector3 candidate = originalPoint + Vector3.right * sign * distance;
+                candidate.z = 0f;
+                attempts++;
+
+                if (!IsDynamicWalkPointEdgeSafe(candidate, true, out DynamicWalkEdgeClearanceResult candidateEdgeResult))
+                    continue;
+
+                Vector3 safePoint = candidateEdgeResult.CenterGroundFound ? candidateEdgeResult.CenterGroundPoint : candidate;
+                safePoint.z = 0f;
+
+                adjustedPoint = safePoint;
+                result.Adjusted = true;
+                result.FoundSafePoint = true;
+                result.Reason = "AdjustedToNearestSafePoint";
+                result.AdjustedPoint = safePoint;
+                result.AdjustmentDistance = safePoint.x - originalPoint.x;
+                result.SelectedDirectionLabel = sign > 0 ? "Right" : "Left";
+                result.Attempts = attempts;
+                result.AdjustedEdgeResult = candidateEdgeResult;
+                return true;
+            }
+        }
+
+        result.Adjusted = false;
+        result.FoundSafePoint = false;
+        result.Reason = "NoSafePointFoundWithinMaxDistance";
+        result.Attempts = attempts;
+        result.AdjustedPoint = originalPoint;
+        adjustedPoint = originalPoint;
+        return false;
+    }
+
+    private int[] GetPreferredLastKnownSafeAdjustmentSigns(DynamicWalkEdgeClearanceResult edgeResult)
+    {
+        if (!preferLastKnownSafeAdjustmentAwayFromMissingGround)
+            return new[] { 1, -1 };
+
+        switch (edgeResult.RejectReason)
+        {
+            case "LeftGroundMissing":
+            case "LeftGroundHeightDeltaTooLarge":
+                return new[] { 1, -1 };
+
+            case "RightGroundMissing":
+            case "RightGroundHeightDeltaTooLarge":
+                return new[] { -1, 1 };
+
+            default:
+                return new[] { 1, -1 };
+        }
+    }
+
+    private RuntimeSearchPoint WithLastKnownSafeAdjustment(RuntimeSearchPoint point, Vector3 adjustedPoint, LastKnownSafeAdjustmentResult result)
+    {
+        Vector3 originalLastKnown = preserveOriginalLastKnownForDebug && point.LastKnownVersionSnapshot > 0
+            ? point.LastKnownPositionSnapshot
+            : result.OriginalPoint;
+
+        if (point.RequiresJumpLink && point.HasExplicitJumpTraversal)
+        {
+            return new RuntimeSearchPoint(
+                adjustedPoint,
+                point.WaitDuration,
+                point.JumpLink,
+                point.Score,
+                point.JumpTraversalStart,
+                point.JumpTraversalEnd,
+                point.IsLastKnownInvestigationPoint,
+                point.HasFacingHint,
+                point.FacingHintSign,
+                point.FacingHintMode,
+                point.FacingHintSource,
+                point.LastKnownVersionSnapshot,
+                point.LastKnownPositionSnapshot,
+                point.HasLastKnownFacingHintSnapshot,
+                point.LastKnownFacingSignSnapshot,
+                point.LastKnownFacingModeSnapshot,
+                point.LastKnownFacingSourceSnapshot,
+                true,
+                originalLastKnown,
+                adjustedPoint,
+                result.Reason,
+                result.AdjustmentDistance);
+        }
+
+        return new RuntimeSearchPoint(
+            adjustedPoint,
+            point.WaitDuration,
+            point.RequiresJumpLink,
+            point.JumpLink,
+            point.Score,
+            point.IsLastKnownInvestigationPoint,
+            point.HasFacingHint,
+            point.FacingHintSign,
+            point.FacingHintMode,
+            point.FacingHintSource,
+            point.LastKnownVersionSnapshot,
+            point.LastKnownPositionSnapshot,
+            point.HasLastKnownFacingHintSnapshot,
+            point.LastKnownFacingSignSnapshot,
+            point.LastKnownFacingModeSnapshot,
+            point.LastKnownFacingSourceSnapshot,
+            true,
+            originalLastKnown,
+            adjustedPoint,
+            result.Reason,
+            result.AdjustmentDistance);
+    }
+
+    private bool ValidateDynamicWalkPointEdgeClearanceBeforeAdd(RuntimeSearchPoint point, bool isLastKnownInvestigationPoint, string candidateSource)
+    {
+        if (point.RequiresJumpLink)
+            return true;
+
+        if (!ShouldEvaluateDynamicWalkPointEdgeClearance(candidateSource, isLastKnownInvestigationPoint))
+            return true;
+
+        bool isSafe = IsDynamicWalkPointEdgeSafe(point.WorldPosition, isLastKnownInvestigationPoint, out DynamicWalkEdgeClearanceResult edgeResult);
+        if (isSafe)
+            return true;
+
+        if (isLastKnownInvestigationPoint)
+        {
+            if (warnWhenLastKnownInvestigationPointNearEdge)
+            {
+                warnedLastKnownInvestigationPointNearEdgeCount++;
+                LogLastKnownInvestigationPointNearEdge(point, edgeResult, candidateSource);
+            }
+
+            return true;
+        }
+
+        rejectedDynamicWalkPointUnsafeEdgeCount++;
+        LogRejectedDynamicWalkPointEdgeClearance(runtimePointMode, point.WorldPosition, edgeResult, candidateSource);
+        return false;
+    }
+
+    private bool ShouldEvaluateDynamicWalkPointEdgeClearance(string candidateSource, bool isLastKnownInvestigationPoint)
+    {
+        if (!requireDynamicWalkPointEdgeClearance)
+            return false;
+
+        if (dynamicWalkPointMinEdgeClearance <= 0f)
+            return false;
+
+        if (isLastKnownInvestigationPoint)
+            return warnWhenLastKnownInvestigationPointNearEdge;
+
+        if (runtimePointMode == RuntimePointMode.DynamicPatrol)
+            return applyDynamicWalkEdgeClearanceToDynamicPatrolPoints;
+
+        if (runtimePointMode == RuntimePointMode.Search)
+        {
+            if (candidateSource == "LocalFallbackWalkCandidate")
+                return applyDynamicWalkEdgeClearanceToLocalFallbackPoints;
+
+            return applyDynamicWalkEdgeClearanceToSearchSidePoints;
+        }
+
+        return false;
+    }
+
+    private bool IsDynamicWalkPointEdgeSafe(Vector3 point, bool isLastKnownInvestigationPoint, out DynamicWalkEdgeClearanceResult result)
+    {
+        result = default;
+        result.IsSafe = true;
+        result.RejectReason = "None";
+        result.Point = point;
+        result.CenterGroundObject = "None";
+        result.LeftGroundObject = "None";
+        result.RightGroundObject = "None";
+        result.CenterGroundLayer = -1;
+        result.LeftGroundLayer = -1;
+        result.RightGroundLayer = -1;
+        result.MinEdgeClearance = dynamicWalkPointMinEdgeClearance;
+        result.MaxGroundHeightDelta = dynamicWalkPointMaxGroundHeightDelta;
+
+        if (!requireDynamicWalkPointEdgeClearance || dynamicWalkPointMinEdgeClearance <= 0f)
+            return true;
+
+        float upOffset = Mathf.Max(0f, dynamicWalkPointEdgeProbeUpOffset);
+        float downDistance = Mathf.Max(0.01f, dynamicWalkPointEdgeProbeDownDistance);
+        float rayDistance = upOffset + downDistance;
+        Vector3 centerOrigin = point + Vector3.up * upOffset;
+        Vector3 leftOrigin = centerOrigin + Vector3.left * dynamicWalkPointMinEdgeClearance;
+        Vector3 rightOrigin = centerOrigin + Vector3.right * dynamicWalkPointMinEdgeClearance;
+
+        result.CenterProbeOrigin = centerOrigin;
+        result.LeftProbeOrigin = leftOrigin;
+        result.RightProbeOrigin = rightOrigin;
+
+        if (!Physics.Raycast(centerOrigin, Vector3.down, out RaycastHit centerHit, rayDistance, dynamicPointGroundMask, QueryTriggerInteraction.Ignore))
+        {
+            result.IsSafe = false;
+            result.RejectReason = "CenterGroundMissing";
+            result.CenterGroundFound = false;
+            return false;
+        }
+
+        result.CenterGroundFound = true;
+        result.CenterGroundPoint = centerHit.point;
+        result.CenterGroundPoint.z = 0f;
+        result.CenterGroundObject = centerHit.collider != null ? centerHit.collider.name : "None";
+        result.CenterGroundLayer = centerHit.collider != null ? centerHit.collider.gameObject.layer : -1;
+
+        if (!Physics.Raycast(leftOrigin, Vector3.down, out RaycastHit leftHit, rayDistance, dynamicPointGroundMask, QueryTriggerInteraction.Ignore))
+        {
+            result.IsSafe = false;
+            result.RejectReason = "LeftGroundMissing";
+            result.LeftGroundFound = false;
+            return false;
+        }
+
+        result.LeftGroundFound = true;
+        result.LeftGroundPoint = leftHit.point;
+        result.LeftGroundPoint.z = 0f;
+        result.LeftGroundObject = leftHit.collider != null ? leftHit.collider.name : "None";
+        result.LeftGroundLayer = leftHit.collider != null ? leftHit.collider.gameObject.layer : -1;
+
+        if (!Physics.Raycast(rightOrigin, Vector3.down, out RaycastHit rightHit, rayDistance, dynamicPointGroundMask, QueryTriggerInteraction.Ignore))
+        {
+            result.IsSafe = false;
+            result.RejectReason = "RightGroundMissing";
+            result.RightGroundFound = false;
+            return false;
+        }
+
+        result.RightGroundFound = true;
+        result.RightGroundPoint = rightHit.point;
+        result.RightGroundPoint.z = 0f;
+        result.RightGroundObject = rightHit.collider != null ? rightHit.collider.name : "None";
+        result.RightGroundLayer = rightHit.collider != null ? rightHit.collider.gameObject.layer : -1;
+
+        result.LeftHeightDelta = Mathf.Abs(result.LeftGroundPoint.y - result.CenterGroundPoint.y);
+        result.RightHeightDelta = Mathf.Abs(result.RightGroundPoint.y - result.CenterGroundPoint.y);
+
+        float maxHeightDelta = Mathf.Max(0f, dynamicWalkPointMaxGroundHeightDelta);
+        if (result.LeftHeightDelta > maxHeightDelta)
+        {
+            result.IsSafe = false;
+            result.RejectReason = "LeftGroundHeightDeltaTooLarge";
+            return false;
+        }
+
+        if (result.RightHeightDelta > maxHeightDelta)
+        {
+            result.IsSafe = false;
+            result.RejectReason = "RightGroundHeightDeltaTooLarge";
+            return false;
+        }
+
+        result.IsSafe = true;
+        result.RejectReason = "None";
+        return true;
+    }
+
     private bool IsNormallyReachableDynamicPoint(Vector3 fromReferencePosition, Vector3 candidateWorldPosition)
     {
         return IsNormallyReachableDynamicPoint(fromReferencePosition, candidateWorldPosition, dynamicPointSamePlatformVerticalTolerance);
@@ -2950,6 +4118,35 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
 
     private RuntimeSearchPoint WithLastKnownFacingHint(RuntimeSearchPoint point)
     {
+        int versionSnapshot = perception != null ? perception.LastKnownPositionVersion : observedSearchLastKnownVersion;
+        Vector3 positionSnapshot = perception != null && perception.HasLastKnownPosition ? perception.LastKnownTargetPosition : activeSearchRecoveryTarget;
+        bool hasFacingSnapshot = activeSearchRecoveryHasFacingHint;
+        int facingSnapshotSign = activeSearchRecoveryFacingSign;
+        string facingSnapshotMode = activeSearchRecoveryFacingMode;
+        string facingSnapshotSource = activeSearchRecoveryFacingSource;
+
+        if (point.RequiresJumpLink && point.HasExplicitJumpTraversal)
+        {
+            return new RuntimeSearchPoint(
+                point.WorldPosition,
+                point.WaitDuration,
+                point.JumpLink,
+                point.Score,
+                point.JumpTraversalStart,
+                point.JumpTraversalEnd,
+                true,
+                activeSearchRecoveryHasFacingHint,
+                activeSearchRecoveryFacingSign,
+                activeSearchRecoveryFacingMode,
+                activeSearchRecoveryFacingSource,
+                versionSnapshot,
+                positionSnapshot,
+                hasFacingSnapshot,
+                facingSnapshotSign,
+                facingSnapshotMode,
+                facingSnapshotSource);
+        }
+
         return new RuntimeSearchPoint(
             point.WorldPosition,
             point.WaitDuration,
@@ -2960,7 +4157,13 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             activeSearchRecoveryHasFacingHint,
             activeSearchRecoveryFacingSign,
             activeSearchRecoveryFacingMode,
-            activeSearchRecoveryFacingSource);
+            activeSearchRecoveryFacingSource,
+            versionSnapshot,
+            positionSnapshot,
+            hasFacingSnapshot,
+            facingSnapshotSign,
+            facingSnapshotMode,
+            facingSnapshotSource);
     }
 
     private void ApplyLastKnownFacingHintOnArrival(RuntimeSearchPoint point, Vector3 currentReference, float distanceToPoint, float arrivalTolerance, int pointIndex)
@@ -2978,10 +4181,20 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         int sign = point.FacingHintSign >= 0 ? 1 : -1;
         int beforeSign = character != null ? character.FacingSign : 0;
         bool appliedBefore = activeSearchRecoveryFacingApplied;
+        int previousAppliedVersion = activeSearchRecoveryFacingAppliedVersion;
+        int appliedVersion = point.LastKnownVersionSnapshot > 0
+            ? point.LastKnownVersionSnapshot
+            : (perception != null ? perception.LastKnownPositionVersion : observedSearchLastKnownVersion);
+
         character.ForceFacingSign(sign);
+        StartSearchFacingLock(point, sign, pointIndex);
         activeSearchRecoveryFacingApplied = true;
-        activeSearchRecoveryFacingAppliedVersion = perception != null ? perception.LastKnownPositionVersion : observedSearchLastKnownVersion;
+        activeSearchRecoveryFacingAppliedVersion = appliedVersion;
         int afterSign = character != null ? character.FacingSign : 0;
+
+        if (appliedBefore && previousAppliedVersion != appliedVersion)
+            LogSearchFacingVersionedApply(point, sign, previousAppliedVersion, appliedVersion, pointIndex, currentReference);
+
         LogAppliedLastKnownFacingHint(point, sign, beforeSign, afterSign, pointIndex, currentReference, appliedBefore);
         ScheduleSearchFacingHintPostApplyVerification(point, sign);
     }
@@ -2997,16 +4210,132 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         if (character == null)
             return "CharacterMissing";
 
-        if (activeSearchRecoveryFacingApplied)
-            return "FacingAlreadyAppliedThisSearch";
-
         if (!point.IsLastKnownInvestigationPoint)
             return "PointIsNotLastKnownInvestigationPoint";
 
         if (!point.HasFacingHint)
             return "PointHasNoFacingHint";
 
+        if (point.FacingHintSign == 0)
+            return "PointFacingSignZero";
+
+        if (!activeSearchRecoveryFacingApplied)
+            return "None";
+
+        if (!allowSearchFacingReapplyForNewLastKnownVersion)
+            return "FacingAlreadyAppliedThisSearch";
+
+        int pointVersion = point.LastKnownVersionSnapshot;
+        if (pointVersion <= 0)
+            return "FacingAlreadyAppliedThisSearchUnknownVersion";
+
+        if (activeSearchRecoveryFacingAppliedVersion >= 0 && pointVersion == activeSearchRecoveryFacingAppliedVersion)
+            return "FacingAlreadyAppliedForThisVersion";
+
         return "None";
+    }
+
+    private void StartSearchFacingLock(RuntimeSearchPoint point, int sign, int pointIndex)
+    {
+        if (!lockSearchFacingHintOnArrival || searchFacingHintLockDuration <= 0f || character == null)
+            return;
+
+        character.LockFacingSign(sign, searchFacingHintLockDuration, "SearchLastKnownArrival");
+        LogSearchFacingLockStarted(point, sign, pointIndex, "SearchLastKnownArrival");
+    }
+
+    private void ClearSearchFacingLockFromBrain(string reason)
+    {
+        if (character == null)
+            return;
+
+        bool previousActive = character.IsTemporaryFacingLockActive;
+        int previousSign = character.TemporaryFacingLockSign;
+        string previousReason = character.TemporaryFacingLockReason;
+        float previousRemaining = character.TemporaryFacingLockRemainingTime;
+
+        character.ClearFacingLock(reason);
+        LogSearchFacingLockCleared(reason, previousActive, previousSign, previousReason, previousRemaining);
+    }
+
+    private void LogSearchFacingLockStarted(RuntimeSearchPoint point, int sign, int pointIndex, string reason)
+    {
+        if (!logSearchFacingHintLock)
+            return;
+
+        string key = $"LockStarted|{pointIndex}|{FormatVector3ForLog(point.WorldPosition)}|{sign}|{point.LastKnownVersionSnapshot}";
+        if (!ShouldLogSearchFacingHintDiagnostic(key))
+            return;
+
+        string message =
+            $"[EnemyBrainBT25D] Search facing lock started\n" +
+            $"Enemy: {name}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"RuntimeIndex: {pointIndex}\n" +
+            $"Point: {FormatVector3ForLog(point.WorldPosition)}\n" +
+            $"FacingSign: {FormatFacingSignForLog(sign)}\n" +
+            $"Duration: {searchFacingHintLockDuration:F2}\n" +
+            $"Reason: {reason}\n" +
+            $"PointLastKnownVersionSnapshot: {point.LastKnownVersionSnapshot}\n" +
+            $"SearchRecoveryFacingAppliedVersion: {activeSearchRecoveryFacingAppliedVersion}\n" +
+            $"CharacterLockActiveAfterCall: {(character != null && character.IsTemporaryFacingLockActive)}\n" +
+            $"CharacterLockedFacingSignAfterCall: {(character != null ? FormatFacingSignForLog(character.TemporaryFacingLockSign) : "None")}";
+
+        Debug.Log(message, this);
+        if (writeSearchFacingHintLockLogsToFile)
+            WriteEnemyDebugLogToFile("SearchFacingLockStarted", message);
+    }
+
+    private void LogSearchFacingLockCleared(string reason, bool previousActive, int previousSign, string previousReason, float previousRemaining)
+    {
+        if (!logSearchFacingHintLock || !previousActive)
+            return;
+
+        string key = $"LockCleared|{reason}|{previousSign}|{previousReason}|{currentState}|{currentAction}";
+        if (!ShouldLogSearchFacingHintDiagnostic(key))
+            return;
+
+        string message =
+            $"[EnemyBrainBT25D] Search facing lock cleared\n" +
+            $"Enemy: {name}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"ClearReason: {reason}\n" +
+            $"PreviousLockActive: {previousActive}\n" +
+            $"PreviousLockedSign: {FormatFacingSignForLog(previousSign)}\n" +
+            $"PreviousLockReason: {previousReason}\n" +
+            $"PreviousRemainingTime: {previousRemaining:F2}";
+
+        Debug.Log(message, this);
+        if (writeSearchFacingHintLockLogsToFile)
+            WriteEnemyDebugLogToFile("SearchFacingLockCleared", message);
+    }
+
+    private void LogSearchFacingVersionedApply(RuntimeSearchPoint point, int sign, int previousAppliedVersion, int newPointVersion, int pointIndex, Vector3 currentReference)
+    {
+        if (!logSearchFacingVersionedApply)
+            return;
+
+        string key = $"VersionedApply|{previousAppliedVersion}|{newPointVersion}|{pointIndex}|{FormatVector3ForLog(point.WorldPosition)}|{sign}";
+        if (!ShouldLogSearchFacingHintDiagnostic(key))
+            return;
+
+        string message =
+            $"[EnemyBrainBT25D] Applied LastKnown facing for new version\n" +
+            $"Enemy: {name}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"RuntimeIndex: {pointIndex}\n" +
+            $"Point: {FormatVector3ForLog(point.WorldPosition)}\n" +
+            $"CurrentRef: {FormatVector3ForLog(currentReference)}\n" +
+            $"PreviousAppliedVersion: {previousAppliedVersion}\n" +
+            $"NewPointVersion: {newPointVersion}\n" +
+            $"FacingSign: {FormatFacingSignForLog(sign)}\n" +
+            $"FacingMode: {point.FacingHintMode}\n" +
+            $"FacingSource: {point.FacingHintSource}\n" +
+            $"Reason: NewLastKnownVersionAllowsFacingReapply";
+
+        Debug.Log(message, this);
+        if (writeSearchFacingHintDiagnosticsToFile)
+            WriteEnemyDebugLogToFile("SearchFacingVersionedApply", message);
     }
 
     private void LogAppliedLastKnownFacingHint(RuntimeSearchPoint point, int sign, int beforeSign, int afterSign, int pointIndex, Vector3 currentReference, bool appliedBefore)
@@ -3028,6 +4357,8 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             $"AfterFacingSign: {FormatFacingSignForLog(afterSign)}\n" +
             $"PerceptionLastKnownVersion: {(perception != null ? perception.LastKnownPositionVersion : -1)}\n" +
             $"ObservedSearchLastKnownVersion: {observedSearchLastKnownVersion}\n" +
+            $"PointLastKnownVersion: {point.LastKnownVersionSnapshot}\n" +
+            $"PointLastKnownPositionSnapshot: {FormatVector3ForLog(point.LastKnownPositionSnapshot)}\n" +
             $"ActiveSearchRecoveryFacingAppliedBefore: {appliedBefore}\n" +
             $"ActiveSearchRecoveryFacingAppliedAfter: {activeSearchRecoveryFacingApplied}\n" +
             $"SearchRecoveryFacingAppliedVersion: {activeSearchRecoveryFacingAppliedVersion}\n" +
@@ -3070,6 +4401,17 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             $"FacingMode: {point.FacingHintMode}\n" +
             $"FacingSource: {point.FacingHintSource}\n" +
             $"PerceptionLastKnownVersion: {(perception != null ? perception.LastKnownPositionVersion : -1)}\n" +
+            $"PointLastKnownVersionSnapshot: {point.LastKnownVersionSnapshot}\n" +
+            $"PointLastKnownPositionSnapshot: {FormatVector3ForLog(point.LastKnownPositionSnapshot)}\n" +
+            $"HasAdjustedLastKnownSafePosition: {point.HasAdjustedLastKnownSafePosition}\n" +
+            $"OriginalLastKnownPositionSnapshot: {FormatVector3ForLog(point.OriginalLastKnownPositionSnapshot)}\n" +
+            $"AdjustedLastKnownSafePosition: {FormatVector3ForLog(point.AdjustedLastKnownSafePosition)}\n" +
+            $"LastKnownSafeAdjustmentReason: {point.LastKnownSafeAdjustmentReason}\n" +
+            $"LastKnownSafeAdjustmentDistance: {point.LastKnownSafeAdjustmentDistance:F2}\n" +
+            $"PointHasLastKnownFacingHintSnapshot: {point.HasLastKnownFacingHintSnapshot}\n" +
+            $"PointLastKnownFacingSignSnapshot: {(point.HasLastKnownFacingHintSnapshot ? FormatFacingSignForLog(point.LastKnownFacingSignSnapshot) : "None")}\n" +
+            $"PointLastKnownFacingModeSnapshot: {point.LastKnownFacingModeSnapshot}\n" +
+            $"PointLastKnownFacingSourceSnapshot: {point.LastKnownFacingSourceSnapshot}\n" +
             $"PerceptionLastKnownReason: {(perception != null ? perception.LastKnownUpdateReason : "None")}\n" +
             $"DistancePointToAnchor: {distancePointToAnchor:F2}\n" +
             $"DistancePointToLastKnown: {distancePointToLastKnown:F2}";
@@ -3102,6 +4444,8 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             $"PointFacingSign: {(point.HasFacingHint ? FormatFacingSignForLog(point.FacingHintSign) : "None")}\n" +
             $"PointFacingMode: {point.FacingHintMode}\n" +
             $"PointFacingSource: {point.FacingHintSource}\n" +
+            $"PointLastKnownVersionSnapshot: {point.LastKnownVersionSnapshot}\n" +
+            $"PointLastKnownPositionSnapshot: {FormatVector3ForLog(point.LastKnownPositionSnapshot)}\n" +
             $"ActiveSearchAnchor: {FormatVector3ForLog(runtimePointsAnchor)}\n" +
             $"ActiveSearchTarget: {FormatVector3ForLog(activeSearchRecoveryTarget)}\n" +
             $"PerceptionLastKnown: {(perception != null && perception.HasLastKnownPosition ? FormatVector3ForLog(perception.LastKnownTargetPosition) : "None")}\n" +
@@ -3144,6 +4488,8 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             $"PointFacingSign: {(point.HasFacingHint ? FormatFacingSignForLog(point.FacingHintSign) : "None")}\n" +
             $"PointFacingMode: {point.FacingHintMode}\n" +
             $"PointFacingSource: {point.FacingHintSource}\n" +
+            $"PointLastKnownVersionSnapshot: {point.LastKnownVersionSnapshot}\n" +
+            $"PointLastKnownPositionSnapshot: {FormatVector3ForLog(point.LastKnownPositionSnapshot)}\n" +
             $"PerceptionLastKnownVersion: {(perception != null ? perception.LastKnownPositionVersion : -1)}\n" +
             $"PerceptionFacingSign: {(perception != null && perception.HasLastKnownFacingHint ? FormatFacingSignForLog(perception.LastKnownFacingSign) : "None")}\n" +
             $"ActiveSearchRecoveryFacingApplied: {activeSearchRecoveryFacingApplied}\n" +
@@ -3208,7 +4554,11 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             $"IsTraversalActive: {(character != null && character.IsJumpTraversalActive)}\n" +
             $"TargetVisible: {(perception != null && perception.IsTargetVisible)}\n" +
             $"CurrentState: {currentState}\n" +
-            $"CurrentAction: {currentAction}";
+            $"CurrentAction: {currentAction}\n" +
+            $"TemporaryFacingLockActive: {(character != null && character.IsTemporaryFacingLockActive)}\n" +
+            $"TemporaryFacingLockSign: {(character != null ? FormatFacingSignForLog(character.TemporaryFacingLockSign) : "None")}\n" +
+            $"TemporaryFacingLockReason: {(character != null ? character.TemporaryFacingLockReason : "None")}\n" +
+            $"TemporaryFacingLockRemainingTime: {(character != null ? character.TemporaryFacingLockRemainingTime : 0f):F2}";
 
         Debug.Log(message, this);
         if (writeSearchFacingHintDiagnosticsToFile)
@@ -3317,7 +4667,11 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
 
     private string GetSearchFacingHintPointLogSuffix(RuntimeSearchPoint point)
     {
-        return $" lastKnownInvestigation={point.IsLastKnownInvestigationPoint} hasFacingHint={point.HasFacingHint} facing={(point.HasFacingHint ? FormatFacingSignForLog(point.FacingHintSign) : "None")} mode={point.FacingHintMode} source={point.FacingHintSource}";
+        string adjustedSuffix = point.HasAdjustedLastKnownSafePosition
+            ? $" adjustedLastKnown=True originalLastKnown={FormatVector3ForLog(point.OriginalLastKnownPositionSnapshot)} adjustedSafePoint={FormatVector3ForLog(point.AdjustedLastKnownSafePosition)} adjustmentDistance={point.LastKnownSafeAdjustmentDistance:F2} adjustmentReason={point.LastKnownSafeAdjustmentReason}"
+            : " adjustedLastKnown=False";
+
+        return $" lastKnownInvestigation={point.IsLastKnownInvestigationPoint} hasFacingHint={point.HasFacingHint} facing={(point.HasFacingHint ? FormatFacingSignForLog(point.FacingHintSign) : "None")} mode={point.FacingHintMode} source={point.FacingHintSource} version={point.LastKnownVersionSnapshot}{adjustedSuffix}";
     }
 
     private bool TickRuntimePointList(bool loop, float arrivalTolerance)
@@ -4793,6 +6147,156 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
             WriteEnemyDebugLogToFile("RejectedJumpLink", message);
     }
 
+    private void LogRejectedDynamicWalkPointEdgeClearance(
+        RuntimePointMode mode,
+        Vector3 point,
+        DynamicWalkEdgeClearanceResult result,
+        string candidateSource)
+    {
+        if (!logRejectedDynamicWalkPointEdgeClearance)
+            return;
+
+        string message =
+            $"[EnemyBrainBT25D] Rejected dynamic WALK point\n" +
+            $"Enemy: {name}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"Mode: {mode}\n" +
+            $"CandidateSource: {candidateSource}\n" +
+            $"Reason: unsafe edge clearance\n" +
+            $"EdgeRejectReason: {result.RejectReason}\n" +
+            $"Point: {FormatVector3ForLog(point)}\n" +
+            $"CurrentRef: {FormatVector3ForLog(GetTraversalReferencePosition())}\n" +
+            $"Anchor: {FormatVector3ForLog(runtimePointsAnchor)}\n" +
+            $"MinEdgeClearance: {result.MinEdgeClearance:F2}\n" +
+            $"MaxGroundHeightDelta: {result.MaxGroundHeightDelta:F2}\n" +
+            $"ProbeUpOffset: {dynamicWalkPointEdgeProbeUpOffset:F2}\n" +
+            $"ProbeDownDistance: {dynamicWalkPointEdgeProbeDownDistance:F2}\n" +
+            $"CenterProbeOrigin: {FormatVector3ForLog(result.CenterProbeOrigin)}\n" +
+            $"CenterGroundFound: {result.CenterGroundFound}\n" +
+            $"CenterGroundPoint: {FormatVector3ForLog(result.CenterGroundPoint)}\n" +
+            $"CenterGroundObject: {result.CenterGroundObject}\n" +
+            $"CenterGroundLayer: {result.CenterGroundLayer}\n" +
+            $"LeftProbeOrigin: {FormatVector3ForLog(result.LeftProbeOrigin)}\n" +
+            $"LeftGroundFound: {result.LeftGroundFound}\n" +
+            $"LeftGroundPoint: {FormatVector3ForLog(result.LeftGroundPoint)}\n" +
+            $"LeftGroundObject: {result.LeftGroundObject}\n" +
+            $"LeftGroundLayer: {result.LeftGroundLayer}\n" +
+            $"LeftHeightDelta: {result.LeftHeightDelta:F3}\n" +
+            $"RightProbeOrigin: {FormatVector3ForLog(result.RightProbeOrigin)}\n" +
+            $"RightGroundFound: {result.RightGroundFound}\n" +
+            $"RightGroundPoint: {FormatVector3ForLog(result.RightGroundPoint)}\n" +
+            $"RightGroundObject: {result.RightGroundObject}\n" +
+            $"RightGroundLayer: {result.RightGroundLayer}\n" +
+            $"RightHeightDelta: {result.RightHeightDelta:F3}";
+
+        Debug.Log(message, this);
+        if (writeDynamicWalkPointEdgeClearanceLogsToFile)
+            WriteEnemyDebugLogToFile("RejectedDynamicWalkPoint", message);
+    }
+
+    private void LogLastKnownSafeAdjustment(RuntimeSearchPoint originalPoint, RuntimeSearchPoint adjustedPoint, LastKnownSafeAdjustmentResult result, string candidateSource)
+    {
+        if (!logLastKnownSafeAdjustment)
+            return;
+
+        string message =
+            $"[EnemyBrainBT25D] LastKnown investigation point adjusted to safe position\n" +
+            $"Enemy: {name}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"CandidateSource: {candidateSource}\n" +
+            $"OriginalPoint: {FormatVector3ForLog(result.OriginalPoint)}\n" +
+            $"AdjustedPoint: {FormatVector3ForLog(result.AdjustedPoint)}\n" +
+            $"AdjustmentDistance: {result.AdjustmentDistance:F2}\n" +
+            $"SelectedDirection: {result.SelectedDirectionLabel}\n" +
+            $"Reason: {result.Reason}\n" +
+            $"OriginalUnsafeReason: {result.OriginalUnsafeReason}\n" +
+            $"Attempts: {result.Attempts}\n" +
+            $"MaxDistance: {result.MaxDistance:F2}\n" +
+            $"Step: {result.Step:F2}\n" +
+            $"ObservedSearchLastKnownVersion: {observedSearchLastKnownVersion}\n" +
+            $"PointLastKnownVersionSnapshot: {adjustedPoint.LastKnownVersionSnapshot}\n" +
+            $"HasFacingHint: {adjustedPoint.HasFacingHint}\n" +
+            $"FacingSign: {(adjustedPoint.HasFacingHint ? FormatFacingSignForLog(adjustedPoint.FacingHintSign) : "None")}\n" +
+            $"FacingMode: {adjustedPoint.FacingHintMode}\n" +
+            $"FacingSource: {adjustedPoint.FacingHintSource}\n" +
+            $"OriginalEdgeRejectReason: {result.OriginalEdgeResult.RejectReason}\n" +
+            $"AdjustedEdgeRejectReason: {result.AdjustedEdgeResult.RejectReason}\n" +
+            $"OriginalCenterGroundFound: {result.OriginalEdgeResult.CenterGroundFound}\n" +
+            $"OriginalLeftGroundFound: {result.OriginalEdgeResult.LeftGroundFound}\n" +
+            $"OriginalRightGroundFound: {result.OriginalEdgeResult.RightGroundFound}\n" +
+            $"AdjustedCenterGroundFound: {result.AdjustedEdgeResult.CenterGroundFound}\n" +
+            $"AdjustedLeftGroundFound: {result.AdjustedEdgeResult.LeftGroundFound}\n" +
+            $"AdjustedRightGroundFound: {result.AdjustedEdgeResult.RightGroundFound}";
+
+        Debug.Log(message, this);
+        if (writeLastKnownSafeAdjustmentLogsToFile)
+            WriteEnemyDebugLogToFile("LastKnownSafeAdjustment", message);
+    }
+
+    private void LogLastKnownSafeAdjustmentFailed(RuntimeSearchPoint point, LastKnownSafeAdjustmentResult result, string candidateSource)
+    {
+        if (!logLastKnownSafeAdjustment)
+            return;
+
+        string message =
+            $"[EnemyBrainBT25D] LastKnown investigation point unsafe but no safe adjustment was found\n" +
+            $"Enemy: {name}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"CandidateSource: {candidateSource}\n" +
+            $"OriginalPoint: {FormatVector3ForLog(result.OriginalPoint)}\n" +
+            $"MaxDistance: {result.MaxDistance:F2}\n" +
+            $"Step: {result.Step:F2}\n" +
+            $"Attempts: {result.Attempts}\n" +
+            $"OriginalUnsafeReason: {result.OriginalUnsafeReason}\n" +
+            $"ObservedSearchLastKnownVersion: {observedSearchLastKnownVersion}\n" +
+            $"PointLastKnownVersionSnapshot: {point.LastKnownVersionSnapshot}\n" +
+            $"HasFacingHint: {point.HasFacingHint}\n" +
+            $"FacingSign: {(point.HasFacingHint ? FormatFacingSignForLog(point.FacingHintSign) : "None")}\n" +
+            $"FacingMode: {point.FacingHintMode}\n" +
+            $"FacingSource: {point.FacingHintSource}\n" +
+            $"Note: original point was kept";
+
+        Debug.LogWarning(message, this);
+        if (writeLastKnownSafeAdjustmentLogsToFile)
+            WriteEnemyDebugLogToFile("LastKnownSafeAdjustmentFailed", message);
+    }
+
+    private void LogLastKnownInvestigationPointNearEdge(
+        RuntimeSearchPoint point,
+        DynamicWalkEdgeClearanceResult result,
+        string reason)
+    {
+        string message =
+            $"[EnemyBrainBT25D] LastKnown investigation point is near unsafe edge\n" +
+            $"Enemy: {name}\n" +
+            $"State: {currentState} | Action: {currentAction}\n" +
+            $"Reason: {reason}\n" +
+            $"Point: {FormatVector3ForLog(point.WorldPosition)}\n" +
+            $"CurrentRef: {FormatVector3ForLog(GetTraversalReferencePosition())}\n" +
+            $"ActiveSearchAnchor: {FormatVector3ForLog(runtimePointsAnchor)}\n" +
+            $"ObservedSearchLastKnownVersion: {observedSearchLastKnownVersion}\n" +
+            $"PointLastKnownVersionSnapshot: {point.LastKnownVersionSnapshot}\n" +
+            $"HasFacingHint: {point.HasFacingHint}\n" +
+            $"FacingSign: {FormatFacingSignForLog(point.FacingHintSign)}\n" +
+            $"FacingMode: {point.FacingHintMode}\n" +
+            $"FacingSource: {point.FacingHintSource}\n" +
+            $"EdgeRejectReason: {result.RejectReason}\n" +
+            $"MinEdgeClearance: {result.MinEdgeClearance:F2}\n" +
+            $"CenterGroundFound: {result.CenterGroundFound}\n" +
+            $"CenterGroundPoint: {FormatVector3ForLog(result.CenterGroundPoint)}\n" +
+            $"LeftGroundFound: {result.LeftGroundFound}\n" +
+            $"LeftGroundPoint: {FormatVector3ForLog(result.LeftGroundPoint)}\n" +
+            $"LeftHeightDelta: {result.LeftHeightDelta:F3}\n" +
+            $"RightGroundFound: {result.RightGroundFound}\n" +
+            $"RightGroundPoint: {FormatVector3ForLog(result.RightGroundPoint)}\n" +
+            $"RightHeightDelta: {result.RightHeightDelta:F3}\n" +
+            $"Note: point was kept because it is LastKnown investigation point";
+
+        Debug.LogWarning(message, this);
+        if (writeDynamicWalkPointEdgeClearanceLogsToFile)
+            WriteEnemyDebugLogToFile("LastKnownPointNearEdge", message);
+    }
+
     private void LogRuntimePointList(string reason, Vector3 anchor, RuntimePointMode mode)
     {
         if (!logDynamicPointListOnRebuild)
@@ -4830,7 +6334,8 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         {
             string blockedSummary = blockedJumpCount > 0 ? $", BlockedJump={blockedJumpCount}" : string.Empty;
             string searchFacingSummary = mode == RuntimePointMode.Search ? $", SearchFacingHintPoints={CountRuntimePointsWithSearchFacingHint()}, LastKnownInvestigationPoints={CountLastKnownInvestigationRuntimePoints()}" : string.Empty;
-            string summaryMessage = $"[EnemyBrainBT25D] {name} rebuilt dynamic points. Reason={reason}, Mode={mode}, State={currentState}, Action={currentAction}, Points={runtimePoints.Count}, Walk={walkCount}, Jump={jumpCount}{blockedSummary}, WalkBudget={dynamicPointMaxCount}, JumpBudget={dynamicJumpLinkMaxCount}, SeparateJumpBudget={dynamicJumpLinksUseSeparateBudget}, JumpCanExceedRuntimePointMax={dynamicJumpLinksCanExceedRuntimePointMaxCount}, RuntimeIndex={runtimePointIndex}, CurrentRef={FormatVector3ForLog(currentReference)}, Anchor={FormatVector3ForLog(anchor)}{searchFacingSummary}";
+            string edgeClearanceSummary = $", RejectedUnsafeEdgeWalkPoints={rejectedDynamicWalkPointUnsafeEdgeCount}, WarnedLastKnownNearEdgePoints={warnedLastKnownInvestigationPointNearEdgeCount}, AdjustedLastKnownSafePoints={adjustedLastKnownSafePointCount}, FailedLastKnownSafeAdjustments={failedLastKnownSafeAdjustmentCount}, DynamicWalkPointEdgeClearanceEnabled={requireDynamicWalkPointEdgeClearance}, DynamicWalkPointMinEdgeClearance={dynamicWalkPointMinEdgeClearance:F2}, DynamicWalkPointMaxGroundHeightDelta={dynamicWalkPointMaxGroundHeightDelta:F2}";
+            string summaryMessage = $"[EnemyBrainBT25D] {name} rebuilt dynamic points. Reason={reason}, Mode={mode}, State={currentState}, Action={currentAction}, Points={runtimePoints.Count}, Walk={walkCount}, Jump={jumpCount}{blockedSummary}, WalkBudget={dynamicPointMaxCount}, JumpBudget={dynamicJumpLinkMaxCount}, SeparateJumpBudget={dynamicJumpLinksUseSeparateBudget}, JumpCanExceedRuntimePointMax={dynamicJumpLinksCanExceedRuntimePointMaxCount}, RuntimeIndex={runtimePointIndex}, CurrentRef={FormatVector3ForLog(currentReference)}, Anchor={FormatVector3ForLog(anchor)}{searchFacingSummary}{edgeClearanceSummary}";
             Debug.Log(summaryMessage, this);
             if (writeDynamicPointLogsToFile)
                 WriteEnemyDebugLogToFile("DynamicPoints", summaryMessage);
@@ -4853,6 +6358,13 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         sb.AppendLine($"SeparateJumpBudget: {dynamicJumpLinksUseSeparateBudget}");
         sb.AppendLine($"JumpCanExceedRuntimePointMax: {dynamicJumpLinksCanExceedRuntimePointMaxCount}");
         sb.AppendLine($"PreserveJumpLinksWhenTrimming: {preserveDynamicJumpLinksWhenTrimmingRuntimePoints}");
+        sb.AppendLine($"RejectedUnsafeEdgeWalkPoints: {rejectedDynamicWalkPointUnsafeEdgeCount}");
+        sb.AppendLine($"WarnedLastKnownNearEdgePoints: {warnedLastKnownInvestigationPointNearEdgeCount}");
+        sb.AppendLine($"AdjustedLastKnownSafePoints: {adjustedLastKnownSafePointCount}");
+        sb.AppendLine($"FailedLastKnownSafeAdjustments: {failedLastKnownSafeAdjustmentCount}");
+        sb.AppendLine($"DynamicWalkPointEdgeClearanceEnabled: {requireDynamicWalkPointEdgeClearance}");
+        sb.AppendLine($"DynamicWalkPointMinEdgeClearance: {dynamicWalkPointMinEdgeClearance:F2}");
+        sb.AppendLine($"DynamicWalkPointMaxGroundHeightDelta: {dynamicWalkPointMaxGroundHeightDelta:F2}");
         if (mode == RuntimePointMode.Search)
         {
             sb.AppendLine($"LastKnownInvestigationPoints: {CountLastKnownInvestigationRuntimePoints()}");
@@ -5017,6 +6529,8 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         if (previousMode == RuntimePointMode.Search)
         {
             LogSearchFacingHintReset("ClearRuntimePointsPreviousModeSearch", previousCount, previousMode);
+            if (clearSearchFacingLockOnSearchExit)
+                ClearSearchFacingLockFromBrain("ClearRuntimePointsPreviousModeSearch");
             ResetIgnoredSearchRetargetLogState();
         }
 
@@ -5037,6 +6551,8 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         if (leavingSearchDynamic)
         {
             LogSearchFacingHintReset("SetStateLeavingSearchDynamic", runtimePoints.Count, runtimePointMode);
+            if (clearSearchFacingLockOnSearchExit)
+                ClearSearchFacingLockFromBrain($"SearchExit:{nextState}");
             ResetIgnoredSearchRetargetLogState();
         }
 
@@ -5341,6 +6857,10 @@ public sealed class EnemyBrainBT25D : MonoBehaviour
         dynamicPointWalkabilityProbeHeight = Mathf.Max(0.05f, dynamicPointWalkabilityProbeHeight);
         dynamicPointWalkabilityProbeDepth = Mathf.Max(0.05f, dynamicPointWalkabilityProbeDepth);
         dynamicRegenerateMinAirborneTime = Mathf.Max(0f, dynamicRegenerateMinAirborneTime);
+        dynamicWalkPointMinEdgeClearance = Mathf.Max(0f, dynamicWalkPointMinEdgeClearance);
+        dynamicWalkPointEdgeProbeUpOffset = Mathf.Max(0f, dynamicWalkPointEdgeProbeUpOffset);
+        dynamicWalkPointEdgeProbeDownDistance = Mathf.Max(0.01f, dynamicWalkPointEdgeProbeDownDistance);
+        dynamicWalkPointMaxGroundHeightDelta = Mathf.Max(0f, dynamicWalkPointMaxGroundHeightDelta);
         dynamicPatrolJumpLinkSelectionWeight = Mathf.Clamp01(dynamicPatrolJumpLinkSelectionWeight);
         dynamicPatrolWalkPointsRequiredAfterJumpLink = Mathf.Max(0, dynamicPatrolWalkPointsRequiredAfterJumpLink);
         dynamicPatrolDeadEndDelay = Mathf.Max(0f, dynamicPatrolDeadEndDelay);

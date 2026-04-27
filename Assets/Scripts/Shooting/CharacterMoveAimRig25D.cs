@@ -71,6 +71,27 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     [SerializeField] private float lockStanceShotDipDownTime = 0.05f;
     [SerializeField] private float lockStanceShotRecoverTime = 0.08f;
 
+    [Header("Crouch Lockstance Release Return")]
+    [Tooltip("В Crouch + LockStance при отпускании стика сначала управляемо возвращает активную руку в безопасную forward/rest-позу, и только потом отдаёт её обычному fade-out.")]
+    [SerializeField] private bool enableCrouchLockReleaseReturn = true;
+    [SerializeField, Min(0f)] private float crouchLockReleaseReturnDuration = 0.08f;
+    [SerializeField] private float crouchLockReleaseRestAimAngleDeg = -90f;
+    [SerializeField, Range(0f, 1f)] private float crouchLockReleaseHoldWeight = 1f;
+    [SerializeField, Min(0f)] private float crouchLockReleaseFadeOutAfterReturnTime = 0.06f;
+
+    [Header("Crouch Lockstance Hand Switch")]
+    [Tooltip("В Crouch + LockStance при смене активной руки новая рука входит плавно, чтобы не прокручиваться через crouch-позу.")]
+    [SerializeField] private bool enableCrouchLockHandSwitchBlend = true;
+    [SerializeField, Min(0f)] private float crouchLockHandSwitchFadeInTime = 0.08f;
+    [SerializeField] private bool blendCrouchLockHandSwitchLocalY = true;
+
+    [Header("Crouch Lockstance Outgoing Hand Return")]
+    [Tooltip("В Crouch + LockStance при смене активной руки старая рука сначала управляемо возвращается в безопасную позу, и только потом уходит в fade-out.")]
+    [SerializeField] private bool enableCrouchLockOutgoingHandReturn = true;
+    [SerializeField, Min(0f)] private float crouchLockOutgoingHandReturnDuration = 0.08f;
+    [SerializeField, Range(0f, 1f)] private float crouchLockOutgoingHandReturnHoldWeight = 1f;
+    [SerializeField, Min(0f)] private float crouchLockOutgoingHandFadeOutAfterReturnTime = 0.06f;
+
     private InputActionMap resolvedActionMap;
     private InputAction moveAction;
 
@@ -109,6 +130,29 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
     private float currentHeadRelativeAimAngleZ;
     private bool hasCurrentHeadRelativeAimAngle;
     private bool wasLockStyleAimActiveLastFrame;
+
+    private bool crouchLockReleaseReturnActive;
+    private bool crouchLockReleaseReturnCompleted;
+    private bool crouchLockReleaseReturnUsesLeftRig;
+    private float crouchLockReleaseReturnTimer;
+    private float crouchLockReleaseReturnStartAngleDeg;
+    private float crouchLockReleaseReturnTargetAngleDeg;
+
+    private bool crouchLockHandSwitchBlendActive;
+    private bool crouchLockHandSwitchIncomingUsesLeftRig;
+    private float crouchLockHandSwitchTimer;
+    private float crouchLockHandSwitchT = 1f;
+
+    private bool leftCrouchLockOutgoingReturnActive;
+    private bool rightCrouchLockOutgoingReturnActive;
+    private bool leftCrouchLockOutgoingReturnCompleted;
+    private bool rightCrouchLockOutgoingReturnCompleted;
+    private float leftCrouchLockOutgoingReturnTimer;
+    private float rightCrouchLockOutgoingReturnTimer;
+    private float leftCrouchLockOutgoingReturnStartAngleDeg;
+    private float rightCrouchLockOutgoingReturnStartAngleDeg;
+    private float leftCrouchLockOutgoingReturnTargetAngleDeg;
+    private float rightCrouchLockOutgoingReturnTargetAngleDeg;
 
     private float headLookRuntimeWeight;
     private float headLookLatchedRelativeAimAngleZ;
@@ -229,6 +273,9 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         neckAlternateLatchedOffsetX = 0f;
         ClearArmPoseFreezes();
         ClearHeadPoseFreeze();
+        CancelCrouchLockReleaseReturn();
+        CancelCrouchLockHandSwitchBlend();
+        CancelAllCrouchLockOutgoingHandReturns();
         hasCurrentHeadRelativeAimAngle = false;
         currentHeadRelativeAimAngleZ = 0f;
         wasLockStyleAimActiveLastFrame = false;
@@ -256,6 +303,14 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         lockStanceShotDipWeight = Mathf.Clamp01(lockStanceShotDipWeight);
         lockStanceShotDipDownTime = Mathf.Max(0.0001f, lockStanceShotDipDownTime);
         lockStanceShotRecoverTime = Mathf.Max(0.0001f, lockStanceShotRecoverTime);
+        crouchLockReleaseReturnDuration = Mathf.Max(0.0001f, crouchLockReleaseReturnDuration);
+        crouchLockReleaseHoldWeight = Mathf.Clamp01(crouchLockReleaseHoldWeight);
+        crouchLockReleaseFadeOutAfterReturnTime = Mathf.Max(0.0001f, crouchLockReleaseFadeOutAfterReturnTime);
+        crouchLockHandSwitchFadeInTime = Mathf.Max(0.0001f, crouchLockHandSwitchFadeInTime);
+        crouchLockHandSwitchT = Mathf.Clamp01(crouchLockHandSwitchT);
+        crouchLockOutgoingHandReturnDuration = Mathf.Max(0.0001f, crouchLockOutgoingHandReturnDuration);
+        crouchLockOutgoingHandReturnHoldWeight = Mathf.Clamp01(crouchLockOutgoingHandReturnHoldWeight);
+        crouchLockOutgoingHandFadeOutAfterReturnTime = Mathf.Max(0.0001f, crouchLockOutgoingHandFadeOutAfterReturnTime);
         headAimSwitchBlendTime = Mathf.Max(0.0001f, headAimSwitchBlendTime);
         neckAlternateHandConstraintOffsetX = Mathf.Max(0f, neckAlternateHandConstraintOffsetX);
         neckAlternateHandBlendTime = Mathf.Max(0.001f, neckAlternateHandBlendTime);
@@ -322,6 +377,14 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         bool hasWeaponPoseAim = hasMoveAim && weaponPoseAllowed;
         bool isLockStyleAimActive = useLockStylePose && hasWeaponPoseAim;
 
+        bool beginCrouchLockReleaseReturn = ShouldBeginCrouchLockReleaseReturn(isCrouching, useLockStylePose, isLockStyleAimActive);
+        if (beginCrouchLockReleaseReturn)
+            BeginCrouchLockReleaseReturn();
+
+        UpdateCrouchLockReleaseReturnState(isCrouching, useLockStylePose, isLockStyleAimActive);
+        UpdateCrouchLockHandSwitchBlendState(isCrouching, useLockStylePose, isLockStyleAimActive);
+        UpdateCrouchLockOutgoingHandReturnState(isCrouching, useLockStylePose);
+
         Vector3 aimDirection;
         if (hasMoveAim)
         {
@@ -339,23 +402,40 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         aimDirection = ResolveDirectionForCurrentState(aimDirection);
 
         if (!isControlLocked)
-            EvaluateHandForDirection(aimDirection, true);
+        {
+            if (IsCrouchLockReleaseReturnKeepingHandSelection())
+                RestoreCrouchLockReleaseReturnHandSelection();
+            else
+                EvaluateHandForDirection(aimDirection, true);
+        }
 
-        currentAimAngleDeg = DirectionToVisualAngleDeg(aimDirection);
+        float baseAimAngleDeg = DirectionToVisualAngleDeg(aimDirection);
+        currentAimAngleDeg = baseAimAngleDeg;
         float combatAimAngleZ = DirectionToCombatAimAngleZ(aimDirection);
         float headRelativeAimAngleZ = DirectionToHeadRelativeAimAngleZ(aimDirection, GetHeadAimReferenceFacingSign());
-        heldAimAngleDeg = currentAimAngleDeg;
+        heldAimAngleDeg = baseAimAngleDeg;
         heldShotDirection = aimDirection;
+
+        float visualAimAngleDeg = baseAimAngleDeg;
+        if (TryGetCrouchLockReleaseReturnAngle(out float crouchLockReleaseAngleDeg))
+        {
+            visualAimAngleDeg = crouchLockReleaseAngleDeg;
+            currentAimAngleDeg = visualAimAngleDeg;
+            RestoreCrouchLockReleaseReturnHandSelection();
+        }
 
         UpdatePrimaryVisibleWeight(useLockStylePose, isLockStyleAimActive);
         bool hasExplicitHeadAim = isLockStyleAimActive || hasWeaponPoseAim;
-        ApplyVisualAimAndWeights(currentAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, hasExplicitHeadAim, isControlLocked, useLockStylePose, isLockStyleAimActive, weaponPoseAllowed);
+        ApplyVisualAimAndWeights(visualAimAngleDeg, combatAimAngleZ, headRelativeAimAngleZ, hasExplicitHeadAim, isControlLocked, useLockStylePose, isLockStyleAimActive, weaponPoseAllowed);
     }
 
     public void NotifyShotDirection(Vector3 shotDirection)
     {
         if (!CanPresentWeaponPoseNow())
             return;
+
+        CancelCrouchLockReleaseReturn();
+        CancelCrouchLockHandSwitchBlend();
 
         if (shotDirection.sqrMagnitude <= 0.0001f)
             shotDirection = GetFallbackShotDirection();
@@ -446,8 +526,15 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
             currentUsesLeftRig = selectedUsesLeft;
             hasHandSelection = true;
 
-            if (ShouldFreezeOutgoingHandOnSwitch(hadSelectionBefore, previousUsesLeftRig, selectedUsesLeft))
+            CancelCrouchLockOutgoingHandReturn(selectedUsesLeft);
+
+            if (ShouldBeginCrouchLockOutgoingHandReturn(hadSelectionBefore, previousUsesLeftRig, selectedUsesLeft))
+                BeginCrouchLockOutgoingHandReturn(previousUsesLeftRig);
+            else if (ShouldFreezeOutgoingHandOnSwitch(hadSelectionBefore, previousUsesLeftRig, selectedUsesLeft))
                 BeginInactiveHandPoseFreeze(previousUsesLeftRig);
+
+            if (ShouldBeginCrouchLockHandSwitchBlend(hadSelectionBefore, previousUsesLeftRig, selectedUsesLeft))
+                BeginCrouchLockHandSwitchBlend(selectedUsesLeft);
 
             ClearFreezeForActiveHand();
         }
@@ -468,8 +555,412 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
 
         lockStanceShotPulseActive = false;
 
+        if (crouchLockReleaseReturnActive)
+        {
+            primaryVisibleWeight = crouchLockReleaseHoldWeight;
+            return;
+        }
+
+        if (crouchLockReleaseReturnCompleted)
+        {
+            primaryVisibleWeight = MoveTowardsByDuration(primaryVisibleWeight, 0f, crouchLockReleaseFadeOutAfterReturnTime);
+            if (primaryVisibleWeight <= 0.001f)
+            {
+                primaryVisibleWeight = 0f;
+                crouchLockReleaseReturnCompleted = false;
+            }
+            return;
+        }
+
         float fadeDuration = useLockStylePose ? lockStanceReleaseFadeOutTime : movementShotFadeOutTime;
         primaryVisibleWeight = MoveTowardsByDuration(primaryVisibleWeight, 0f, fadeDuration);
+    }
+
+    private bool ShouldBeginCrouchLockReleaseReturn(bool isCrouching, bool useLockStylePose, bool isLockStyleAimActive)
+    {
+        if (!enableCrouchLockReleaseReturn)
+            return false;
+
+        if (!isCrouching || !useLockStylePose)
+            return false;
+
+        if (!wasLockStyleAimActiveLastFrame || isLockStyleAimActive)
+            return false;
+
+        if (!hasHandSelection)
+            return false;
+
+        return true;
+    }
+
+    private bool IsCrouchLockReleaseReturnKeepingHandSelection()
+    {
+        return crouchLockReleaseReturnActive || crouchLockReleaseReturnCompleted;
+    }
+
+    private void BeginCrouchLockReleaseReturn()
+    {
+        crouchLockReleaseReturnActive = true;
+        crouchLockReleaseReturnCompleted = false;
+        crouchLockReleaseReturnUsesLeftRig = currentUsesLeftRig;
+        crouchLockReleaseReturnTimer = 0f;
+        crouchLockReleaseReturnStartAngleDeg = currentAimAngleDeg;
+        crouchLockReleaseReturnTargetAngleDeg = GetCrouchLockReleaseRestAngleDeg(crouchLockReleaseReturnUsesLeftRig);
+        lockStanceShotPulseActive = false;
+        CancelCrouchLockHandSwitchBlend();
+    }
+
+    private void UpdateCrouchLockReleaseReturnState(bool isCrouching, bool useLockStylePose, bool isLockStyleAimActive)
+    {
+        if (isLockStyleAimActive || !isCrouching || !useLockStylePose || !enableCrouchLockReleaseReturn)
+        {
+            CancelCrouchLockReleaseReturn();
+            return;
+        }
+
+        if (!crouchLockReleaseReturnActive)
+            return;
+
+        crouchLockReleaseReturnTimer += Time.deltaTime;
+
+        if (crouchLockReleaseReturnTimer >= crouchLockReleaseReturnDuration)
+        {
+            crouchLockReleaseReturnTimer = crouchLockReleaseReturnDuration;
+            crouchLockReleaseReturnActive = false;
+            crouchLockReleaseReturnCompleted = true;
+        }
+    }
+
+    private void CancelCrouchLockReleaseReturn()
+    {
+        crouchLockReleaseReturnActive = false;
+        crouchLockReleaseReturnCompleted = false;
+        crouchLockReleaseReturnTimer = 0f;
+    }
+
+    private void RestoreCrouchLockReleaseReturnHandSelection()
+    {
+        currentUsesLeftRig = crouchLockReleaseReturnUsesLeftRig;
+        hasHandSelection = true;
+        ClearFreezeForActiveHand();
+    }
+
+    private float GetCrouchLockReleaseRestAngleDeg(bool usesLeftRig)
+    {
+        int facingSign = GetEffectiveFacingSign();
+        bool frontUsesLeft = GetFrontHemisphereUsesLeftForCurrentFacing();
+        bool returningFrontHand = usesLeftRig == frontUsesLeft;
+
+        if (returningFrontHand)
+        {
+            return facingSign >= 0
+                ? crouchLockReleaseRestAimAngleDeg
+                : -crouchLockReleaseRestAimAngleDeg;
+        }
+
+        return facingSign >= 0
+            ? -crouchLockReleaseRestAimAngleDeg
+            : crouchLockReleaseRestAimAngleDeg;
+    }
+
+    private bool TryGetCrouchLockReleaseReturnAngle(out float angleDeg)
+    {
+        if (crouchLockReleaseReturnActive)
+        {
+            float duration = Mathf.Max(0.0001f, crouchLockReleaseReturnDuration);
+            float t = Mathf.Clamp01(crouchLockReleaseReturnTimer / duration);
+            angleDeg = Mathf.LerpAngle(crouchLockReleaseReturnStartAngleDeg, crouchLockReleaseReturnTargetAngleDeg, t);
+            return true;
+        }
+
+        if (crouchLockReleaseReturnCompleted)
+        {
+            angleDeg = crouchLockReleaseReturnTargetAngleDeg;
+            return true;
+        }
+
+        angleDeg = currentAimAngleDeg;
+        return false;
+    }
+
+    private bool ShouldBeginCrouchLockHandSwitchBlend(bool hadSelectionBefore, bool previousUsesLeftRig, bool newUsesLeftRig)
+    {
+        if (!enableCrouchLockHandSwitchBlend)
+            return false;
+
+        if (!hadSelectionBefore || previousUsesLeftRig == newUsesLeftRig)
+            return false;
+
+        if (crouchLockReleaseReturnActive || crouchLockReleaseReturnCompleted)
+            return false;
+
+        if (crouch == null || !crouch.IsCrouching)
+            return false;
+
+        if (!UseLockStylePose())
+            return false;
+
+        if (controlLock != null && controlLock.IsControlLocked)
+            return false;
+
+        if (!CanPresentWeaponPoseNow())
+            return false;
+
+        return TryGetRawMoveAim(out _);
+    }
+
+    private void BeginCrouchLockHandSwitchBlend(bool incomingUsesLeftRig)
+    {
+        if (!enableCrouchLockHandSwitchBlend)
+            return;
+
+        crouchLockHandSwitchBlendActive = true;
+        crouchLockHandSwitchIncomingUsesLeftRig = incomingUsesLeftRig;
+        crouchLockHandSwitchTimer = 0f;
+        crouchLockHandSwitchT = crouchLockHandSwitchFadeInTime <= 0.0001f ? 1f : 0f;
+    }
+
+    private void CancelCrouchLockHandSwitchBlend()
+    {
+        crouchLockHandSwitchBlendActive = false;
+        crouchLockHandSwitchTimer = 0f;
+        crouchLockHandSwitchT = 1f;
+    }
+
+    private void UpdateCrouchLockHandSwitchBlendState(bool isCrouching, bool useLockStylePose, bool isLockStyleAimActive)
+    {
+        if (!crouchLockHandSwitchBlendActive)
+            return;
+
+        if (!enableCrouchLockHandSwitchBlend || !isCrouching || !useLockStylePose || !isLockStyleAimActive)
+        {
+            CancelCrouchLockHandSwitchBlend();
+            return;
+        }
+
+        if (currentUsesLeftRig != crouchLockHandSwitchIncomingUsesLeftRig)
+        {
+            CancelCrouchLockHandSwitchBlend();
+            return;
+        }
+
+        float duration = Mathf.Max(0.0001f, crouchLockHandSwitchFadeInTime);
+        crouchLockHandSwitchTimer += Time.deltaTime;
+        crouchLockHandSwitchT = Mathf.Clamp01(crouchLockHandSwitchTimer / duration);
+
+        if (crouchLockHandSwitchT >= 1f)
+            crouchLockHandSwitchBlendActive = false;
+    }
+
+    private float GetCrouchLockHandSwitchActiveWeight(float baseWeight)
+    {
+        if (!crouchLockHandSwitchBlendActive)
+            return baseWeight;
+
+        if (currentUsesLeftRig != crouchLockHandSwitchIncomingUsesLeftRig)
+            return baseWeight;
+
+        return baseWeight * Mathf.Clamp01(crouchLockHandSwitchT);
+    }
+
+    private bool IsCrouchLockHandSwitchIncomingArm(bool manageLeftArm)
+    {
+        return crouchLockHandSwitchBlendActive
+            && currentUsesLeftRig == crouchLockHandSwitchIncomingUsesLeftRig
+            && manageLeftArm == crouchLockHandSwitchIncomingUsesLeftRig;
+    }
+
+    private bool ShouldBeginCrouchLockOutgoingHandReturn(bool hadSelectionBefore, bool previousUsesLeftRig, bool newUsesLeftRig)
+    {
+        if (!enableCrouchLockOutgoingHandReturn)
+            return false;
+
+        if (!hadSelectionBefore || previousUsesLeftRig == newUsesLeftRig)
+            return false;
+
+        if (crouchLockReleaseReturnActive || crouchLockReleaseReturnCompleted)
+            return false;
+
+        if (crouch == null || !crouch.IsCrouching)
+            return false;
+
+        if (!UseLockStylePose())
+            return false;
+
+        if (controlLock != null && controlLock.IsControlLocked)
+            return false;
+
+        if (!CanPresentWeaponPoseNow())
+            return false;
+
+        return TryGetRawMoveAim(out _);
+    }
+
+    private void BeginCrouchLockOutgoingHandReturn(bool outgoingUsesLeftRig)
+    {
+        if (!enableCrouchLockOutgoingHandReturn)
+            return;
+
+        float startAngle = currentAimAngleDeg;
+        float targetAngle = GetCrouchLockReleaseRestAngleDeg(outgoingUsesLeftRig);
+
+        if (outgoingUsesLeftRig)
+        {
+            leftCrouchLockOutgoingReturnActive = true;
+            leftCrouchLockOutgoingReturnCompleted = false;
+            leftCrouchLockOutgoingReturnTimer = 0f;
+            leftCrouchLockOutgoingReturnStartAngleDeg = startAngle;
+            leftCrouchLockOutgoingReturnTargetAngleDeg = targetAngle;
+            freezeLeftArmPose = false;
+            return;
+        }
+
+        rightCrouchLockOutgoingReturnActive = true;
+        rightCrouchLockOutgoingReturnCompleted = false;
+        rightCrouchLockOutgoingReturnTimer = 0f;
+        rightCrouchLockOutgoingReturnStartAngleDeg = startAngle;
+        rightCrouchLockOutgoingReturnTargetAngleDeg = targetAngle;
+        freezeRightArmPose = false;
+    }
+
+    private void CancelCrouchLockOutgoingHandReturn(bool usesLeftRig)
+    {
+        if (usesLeftRig)
+        {
+            leftCrouchLockOutgoingReturnActive = false;
+            leftCrouchLockOutgoingReturnCompleted = false;
+            leftCrouchLockOutgoingReturnTimer = 0f;
+            return;
+        }
+
+        rightCrouchLockOutgoingReturnActive = false;
+        rightCrouchLockOutgoingReturnCompleted = false;
+        rightCrouchLockOutgoingReturnTimer = 0f;
+    }
+
+    private void CancelAllCrouchLockOutgoingHandReturns()
+    {
+        CancelCrouchLockOutgoingHandReturn(true);
+        CancelCrouchLockOutgoingHandReturn(false);
+    }
+
+    private void UpdateCrouchLockOutgoingHandReturnState(bool isCrouching, bool useLockStylePose)
+    {
+        if (!enableCrouchLockOutgoingHandReturn || !isCrouching || !useLockStylePose)
+        {
+            CancelAllCrouchLockOutgoingHandReturns();
+            return;
+        }
+
+        UpdateSingleCrouchLockOutgoingHandReturn(true);
+        UpdateSingleCrouchLockOutgoingHandReturn(false);
+    }
+
+    private void UpdateSingleCrouchLockOutgoingHandReturn(bool usesLeftRig)
+    {
+        bool active = usesLeftRig
+            ? leftCrouchLockOutgoingReturnActive
+            : rightCrouchLockOutgoingReturnActive;
+
+        if (!active)
+            return;
+
+        float duration = Mathf.Max(0.0001f, crouchLockOutgoingHandReturnDuration);
+
+        if (usesLeftRig)
+        {
+            leftCrouchLockOutgoingReturnTimer += Time.deltaTime;
+            if (leftCrouchLockOutgoingReturnTimer >= duration)
+            {
+                leftCrouchLockOutgoingReturnTimer = duration;
+                leftCrouchLockOutgoingReturnActive = false;
+                leftCrouchLockOutgoingReturnCompleted = true;
+            }
+            return;
+        }
+
+        rightCrouchLockOutgoingReturnTimer += Time.deltaTime;
+        if (rightCrouchLockOutgoingReturnTimer >= duration)
+        {
+            rightCrouchLockOutgoingReturnTimer = duration;
+            rightCrouchLockOutgoingReturnActive = false;
+            rightCrouchLockOutgoingReturnCompleted = true;
+        }
+    }
+
+    private bool TryGetCrouchLockOutgoingReturnAngle(bool usesLeftRig, out float angleDeg)
+    {
+        bool active = usesLeftRig
+            ? leftCrouchLockOutgoingReturnActive
+            : rightCrouchLockOutgoingReturnActive;
+
+        bool completed = usesLeftRig
+            ? leftCrouchLockOutgoingReturnCompleted
+            : rightCrouchLockOutgoingReturnCompleted;
+
+        if (!active && !completed)
+        {
+            angleDeg = currentAimAngleDeg;
+            return false;
+        }
+
+        float target = usesLeftRig
+            ? leftCrouchLockOutgoingReturnTargetAngleDeg
+            : rightCrouchLockOutgoingReturnTargetAngleDeg;
+
+        if (!active)
+        {
+            angleDeg = target;
+            return true;
+        }
+
+        float timer = usesLeftRig
+            ? leftCrouchLockOutgoingReturnTimer
+            : rightCrouchLockOutgoingReturnTimer;
+
+        float start = usesLeftRig
+            ? leftCrouchLockOutgoingReturnStartAngleDeg
+            : rightCrouchLockOutgoingReturnStartAngleDeg;
+
+        float duration = Mathf.Max(0.0001f, crouchLockOutgoingHandReturnDuration);
+        float t = Mathf.Clamp01(timer / duration);
+        angleDeg = Mathf.LerpAngle(start, target, t);
+        return true;
+    }
+
+    private bool IsCrouchLockOutgoingReturnHoldingArm(bool usesLeftRig)
+    {
+        return usesLeftRig
+            ? leftCrouchLockOutgoingReturnActive || leftCrouchLockOutgoingReturnCompleted
+            : rightCrouchLockOutgoingReturnActive || rightCrouchLockOutgoingReturnCompleted;
+    }
+
+    private float GetInactiveHandRuntimeWeight(float currentWeight, bool usesLeftRig)
+    {
+        bool active = usesLeftRig
+            ? leftCrouchLockOutgoingReturnActive
+            : rightCrouchLockOutgoingReturnActive;
+
+        if (active)
+            return Mathf.Max(currentWeight, crouchLockOutgoingHandReturnHoldWeight);
+
+        bool completed = usesLeftRig
+            ? leftCrouchLockOutgoingReturnCompleted
+            : rightCrouchLockOutgoingReturnCompleted;
+
+        if (completed)
+        {
+            float weight = MoveTowardsByDuration(currentWeight, 0f, crouchLockOutgoingHandFadeOutAfterReturnTime);
+            if (weight <= 0.001f)
+            {
+                weight = 0f;
+                CancelCrouchLockOutgoingHandReturn(usesLeftRig);
+            }
+
+            return weight;
+        }
+
+        return MoveTowardsByDuration(currentWeight, 0f, inactiveHandFadeOutTime);
     }
 
     private float EvaluateLockStanceShotPulseWeight()
@@ -849,8 +1340,15 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         float? leftLocalYOverride = GetArmLocalYOverride(useLockStylePose, weaponPoseAllowed, facingSign, manageLeftArm: true);
         float? rightLocalYOverride = GetArmLocalYOverride(useLockStylePose, weaponPoseAllowed, facingSign, manageLeftArm: false);
 
-        ApplyArmLocalRotationWithOptionalFreeze(leftArmAimObject, ref hasLeftArmBaseLocalEuler, ref leftArmBaseLocalEuler, angleDeg + leftLocalAngleOffsetX, leftLocalYOverride, freezeLeftArmPose, frozenLeftArmLocalRotation);
-        ApplyArmLocalRotationWithOptionalFreeze(rightArmAimObject, ref hasRightArmBaseLocalEuler, ref rightArmBaseLocalEuler, angleDeg + rightLocalAngleOffsetX, rightLocalYOverride, freezeRightArmPose, frozenRightArmLocalRotation);
+        float leftArmAngleDeg = angleDeg;
+        float rightArmAngleDeg = angleDeg;
+        if (TryGetCrouchLockOutgoingReturnAngle(true, out float leftOutgoingAngleDeg))
+            leftArmAngleDeg = leftOutgoingAngleDeg;
+        if (TryGetCrouchLockOutgoingReturnAngle(false, out float rightOutgoingAngleDeg))
+            rightArmAngleDeg = rightOutgoingAngleDeg;
+
+        ApplyArmLocalRotationWithOptionalFreeze(leftArmAimObject, ref hasLeftArmBaseLocalEuler, ref leftArmBaseLocalEuler, leftArmAngleDeg + leftLocalAngleOffsetX, leftLocalYOverride, freezeLeftArmPose, frozenLeftArmLocalRotation);
+        ApplyArmLocalRotationWithOptionalFreeze(rightArmAimObject, ref hasRightArmBaseLocalEuler, ref rightArmBaseLocalEuler, rightArmAngleDeg + rightLocalAngleOffsetX, rightLocalYOverride, freezeRightArmPose, frozenRightArmLocalRotation);
 
         float baseDisplayedHeadRelativeAimAngleZ = hasExplicitHeadAim ? headRelativeAimAngleZ : 0f;
         float desiredDisplayedHeadRelativeAimAngleZ = DetermineDesiredDisplayedHeadRelativeAimAngle(baseDisplayedHeadRelativeAimAngleZ, isControlLocked, useLockStylePose, isLockStyleAimActive);
@@ -859,15 +1357,17 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
         ApplyHeadLocalRotationWithOptionalFreeze(headAimObject, ref hasHeadBaseLocalEuler, ref headBaseLocalEuler, 0f, headForwardLocalZ - appliedHeadRelativeAimAngleZ + headLocalAngleOffsetZ, freezeHeadPose, frozenHeadLocalRotation);
         ApplyNeckAlternateHandConstraint(isLockStyleAimActive);
 
+        float activeRuntimeWeight = GetCrouchLockHandSwitchActiveWeight(primaryVisibleWeight);
+
         if (currentUsesLeftRig)
         {
-            leftRuntimeWeight = primaryVisibleWeight;
-            rightRuntimeWeight = MoveTowardsByDuration(rightRuntimeWeight, 0f, inactiveHandFadeOutTime);
+            leftRuntimeWeight = activeRuntimeWeight;
+            rightRuntimeWeight = GetInactiveHandRuntimeWeight(rightRuntimeWeight, usesLeftRig: false);
         }
         else
         {
-            rightRuntimeWeight = primaryVisibleWeight;
-            leftRuntimeWeight = MoveTowardsByDuration(leftRuntimeWeight, 0f, inactiveHandFadeOutTime);
+            rightRuntimeWeight = activeRuntimeWeight;
+            leftRuntimeWeight = GetInactiveHandRuntimeWeight(leftRuntimeWeight, usesLeftRig: true);
         }
 
         headRuntimeWeight = Mathf.Max(primaryVisibleWeight, headLookRuntimeWeight);
@@ -901,7 +1401,18 @@ public sealed class CharacterMoveAimRig25D : MonoBehaviour
             return restY;
 
         bool activeManagedArm = manageLeftArm ? currentUsesLeftRig : !currentUsesLeftRig;
-        return activeManagedArm ? 0f : restY;
+        if (!activeManagedArm)
+        {
+            if (IsCrouchLockOutgoingReturnHoldingArm(manageLeftArm))
+                return 0f;
+
+            return restY;
+        }
+
+        if (blendCrouchLockHandSwitchLocalY && IsCrouchLockHandSwitchIncomingArm(manageLeftArm))
+            return Mathf.LerpAngle(restY, 0f, Mathf.Clamp01(crouchLockHandSwitchT));
+
+        return 0f;
     }
 
     private static void ApplyArmLocalRotation(Transform target, ref bool hasBaseEuler, ref Vector3 baseEuler, float xAngle, float? yAngleOverride)

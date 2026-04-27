@@ -24,22 +24,45 @@ public sealed class StraightProjectile : MonoBehaviour
     [SerializeField] private LayerMask enemyHurtboxMask = 0;
     [SerializeField] private bool destroyOnEnemyHit = true;
 
+    [Header("Enemy Hit Payload")]
+    [SerializeField, Min(0f)] private float damage = 10f;
+    [SerializeField, Min(0f)] private float stunDuration = 0.2f;
+    [SerializeField, Min(0f)] private float knockbackHorizontal = 5f;
+    [SerializeField, Min(0f)] private float knockbackVertical = 0f;
+    [SerializeField] private bool knockbackHorizontalOnly = true;
+    [SerializeField] private bool preserveTargetVerticalVelocity = true;
+    [SerializeField] private bool logEnemyHitPayload = false;
+
     [Header("World Z Lock")]
     [SerializeField] private bool lockWorldZ = true;
     [SerializeField] private float worldZ = 0f;
 
     private Vector3 currentVelocity = Vector3.right;
     private Vector3 previousPosition;
+    private Vector3 spawnPosition;
+    private bool hasSpawnPosition;
     private Transform ownerRoot;
     private float age;
     private bool isInitialized;
     private bool hasImpacted;
+    private bool hasRuntimeHitPayloadOverride;
 
     private void OnEnable()
     {
         age = 0f;
         hasImpacted = false;
         previousPosition = transform.position;
+        spawnPosition = transform.position;
+        hasSpawnPosition = false;
+    }
+
+    private void OnValidate()
+    {
+        ClampHitPayloadSettings();
+        speed = Mathf.Max(0f, speed);
+        gravityAcceleration = Mathf.Max(0f, gravityAcceleration);
+        lifeTime = Mathf.Max(0f, lifeTime);
+        collisionRadius = Mathf.Max(0f, collisionRadius);
     }
 
     private void Start()
@@ -119,6 +142,8 @@ public sealed class StraightProjectile : MonoBehaviour
         hasImpacted = false;
         age = 0f;
         previousPosition = transform.position;
+        spawnPosition = transform.position;
+        hasSpawnPosition = true;
 
         UpdateVisualAlignment();
 
@@ -128,12 +153,30 @@ public sealed class StraightProjectile : MonoBehaviour
             position.z = worldZ;
             transform.position = position;
             previousPosition = position;
+            spawnPosition = position;
         }
     }
 
     public void SetOwnerRoot(Transform root)
     {
         ownerRoot = root;
+    }
+
+    public void InitializeHitPayload(
+        float damage,
+        float stunDuration,
+        float knockbackHorizontal,
+        float knockbackVertical,
+        bool knockbackHorizontalOnly,
+        bool preserveTargetVerticalVelocity)
+    {
+        this.damage = Mathf.Max(0f, damage);
+        this.stunDuration = Mathf.Max(0f, stunDuration);
+        this.knockbackHorizontal = Mathf.Max(0f, knockbackHorizontal);
+        this.knockbackVertical = Mathf.Max(0f, knockbackVertical);
+        this.knockbackHorizontalOnly = knockbackHorizontalOnly;
+        this.preserveTargetVerticalVelocity = preserveTargetVerticalVelocity;
+        hasRuntimeHitPayloadOverride = true;
     }
 
     private void UpdateVelocity(float dt)
@@ -311,7 +354,52 @@ public sealed class StraightProjectile : MonoBehaviour
             hitDirection = Vector3.right;
 
         if (hurtbox != null)
-            hurtbox.ReceiveProjectileHit(hitDirection);
+        {
+            ProjectileHitAwarenessContext awarenessContext = new ProjectileHitAwarenessContext
+            {
+                AttackerRoot = ownerRoot,
+                HasAttackerPosition = ownerRoot != null,
+                AttackerPosition = ownerRoot != null ? ownerRoot.position : Vector3.zero,
+                ProjectileSpawnPosition = spawnPosition,
+                HasProjectileSpawnPosition = hasSpawnPosition,
+                HitPosition = impactPosition,
+                HasHitPosition = true,
+                HitDirection = hitDirection,
+                HasHitDirection = hitDirection.sqrMagnitude > 0.0001f,
+                ProjectileVelocity = currentVelocity,
+                HasProjectileVelocity = currentVelocity.sqrMagnitude > 0.0001f,
+                Reason = "PlayerProjectileHit"
+            };
+
+            hurtbox.ReceiveProjectileHit(
+                hitDirection,
+                damage,
+                stunDuration,
+                knockbackHorizontal,
+                knockbackVertical,
+                knockbackHorizontalOnly,
+                preserveTargetVerticalVelocity,
+                awarenessContext);
+
+            if (logEnemyHitPayload)
+            {
+                Debug.Log(
+                    $"[StraightProjectile] Enemy hit payload delivered\n" +
+                    $"Projectile: {name}\n" +
+                    $"Enemy: {hurtbox.name}\n" +
+                    $"Damage: {damage:0.###}\n" +
+                    $"StunDuration: {stunDuration:0.###}\n" +
+                    $"KnockbackHorizontal: {knockbackHorizontal:0.###}\n" +
+                    $"KnockbackVertical: {knockbackVertical:0.###}\n" +
+                    $"KnockbackHorizontalOnly: {knockbackHorizontalOnly}\n" +
+                    $"PreserveTargetVerticalVelocity: {preserveTargetVerticalVelocity}\n" +
+                    $"RuntimeOverride: {hasRuntimeHitPayloadOverride}\n" +
+                    $"AttackerRoot: {(ownerRoot != null ? ownerRoot.name : "None")}\n" +
+                    $"ProjectileSpawnPosition: {spawnPosition}\n" +
+                    $"HitPosition: {impactPosition}\n" +
+                    $"HitDirection: {hitDirection}");
+            }
+        }
 
         if (destroyOnEnemyHit)
             DestroyProjectile();
@@ -337,6 +425,14 @@ public sealed class StraightProjectile : MonoBehaviour
 
         float angleZ = Mathf.Atan2(alignmentVector.y, alignmentVector.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0f, 0f, angleZ);
+    }
+
+    private void ClampHitPayloadSettings()
+    {
+        damage = Mathf.Max(0f, damage);
+        stunDuration = Mathf.Max(0f, stunDuration);
+        knockbackHorizontal = Mathf.Max(0f, knockbackHorizontal);
+        knockbackVertical = Mathf.Max(0f, knockbackVertical);
     }
 
     private void DestroyProjectile()

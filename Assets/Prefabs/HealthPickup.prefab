@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &3914616085849814203
+--- !u!1 &8362934580933672195
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,48 +8,48 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 5169564851711414892}
-  - component: {fileID: 9185088671109947458}
-  - component: {fileID: 7472044805182914113}
-  - component: {fileID: 2803011140997321830}
-  - component: {fileID: 7752823521266167194}
-  m_Layer: 20
-  m_Name: Bullet
+  - component: {fileID: 2619025865885793252}
+  - component: {fileID: 1533694425612216571}
+  - component: {fileID: 2996053016580845845}
+  - component: {fileID: 1631956965642012969}
+  - component: {fileID: 3476399122233555166}
+  m_Layer: 17
+  m_Name: HealthPickup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &5169564851711414892
+--- !u!4 &2619025865885793252
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3914616085849814203}
+  m_GameObject: {fileID: 8362934580933672195}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.37, y: 0.37, z: 0.37}
-  m_ConstrainProportionsScale: 1
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &9185088671109947458
+--- !u!33 &1533694425612216571
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3914616085849814203}
+  m_GameObject: {fileID: 8362934580933672195}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &7472044805182914113
+--- !u!23 &2996053016580845845
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3914616085849814203}
+  m_GameObject: {fileID: 8362934580933672195}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -92,13 +92,13 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!135 &2803011140997321830
+--- !u!135 &1631956965642012969
 SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3914616085849814203}
+  m_GameObject: {fileID: 8362934580933672195}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -107,44 +107,30 @@ SphereCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &7752823521266167194
+--- !u!114 &3476399122233555166
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3914616085849814203}
+  m_GameObject: {fileID: 8362934580933672195}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6bf0d14730aed3c44aae101765b82116, type: 3}
+  m_Script: {fileID: 11500000, guid: 27eda107a6e28764fbded12f820c56f8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::StraightProjectile
-  trajectoryMode: 1
-  speed: 25
-  gravityAcceleration: 5
-  lifeTime: 10
-  alignRotationToDirection: 1
-  worldHitMask:
-    serializedVersion: 2
-    m_Bits: 2162944
-  collisionRadius: 0.04
-  destroyOnWorldHit: 1
-  enemyHurtboxMask:
-    serializedVersion: 2
-    m_Bits: 262144
-  destroyOnEnemyHit: 1
-  damage: 20
-  stunDuration: 0.2
-  knockbackHorizontal: 10
-  knockbackVertical: 0
-  knockbackHorizontalOnly: 1
-  preserveTargetVerticalVelocity: 1
-  logEnemyHitPayload: 0
-  lockWorldZ: 1
-  worldZ: 0
+  m_EditorClassIdentifier: Assembly-CSharp::HeroHealthPickup25D
+  totalHeal: 25
+  shardCount: 5
+  shardPrefab: {fileID: 3513723353320935046, guid: d00c455c3614d1846aecdc912133bd41, type: 3}
+  shardSpawnRoot: {fileID: 2619025865885793252}
+  spawnRadius: 0.15
+  spawnHeightJitter: 0.08
+  visualRoot: {fileID: 2619025865885793252}
+  pickupCollider: {fileID: 1631956965642012969}
+  searchInParents: 1

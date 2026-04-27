@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -35,6 +36,22 @@ public sealed class RBCharacter25D : MonoBehaviour
     [Header("Air Movement")]
     [Tooltip("Насколько быстро гасится горизонтальная скорость в воздухе после отпускания кнопки направления.")]
     [SerializeField] private float airDeceleration = 8f;
+
+    [Header("External Move Speed Modifiers")]
+    [Tooltip("Разрешить внешние множители скорости движения, например замедление при прохождении сквозь врага.")]
+    [SerializeField] private bool useExternalMoveSpeedMultipliers = true;
+
+    [Tooltip("Минимальный итоговый множитель скорости от внешних источников.")]
+    [SerializeField, Range(0.05f, 1f)] private float minimumExternalMoveSpeedMultiplier = 0.25f;
+
+    [Tooltip("Время плавного входа в замедление.")]
+    [SerializeField, Min(0f)] private float externalMoveSpeedMultiplierEnterBlendTime = 0.08f;
+
+    [Tooltip("Время плавного выхода из замедления.")]
+    [SerializeField, Min(0f)] private float externalMoveSpeedMultiplierExitBlendTime = 0.15f;
+
+    [Tooltip("Писать debug-логи об изменении внешнего множителя скорости.")]
+    [SerializeField] private bool logExternalMoveSpeedMultipliers = false;
 
     [Header("Double Jump Speed Boost")]
     [Tooltip("Включить временный бонус к moveSpeed после double jump.")]
@@ -417,6 +434,16 @@ public sealed class RBCharacter25D : MonoBehaviour
     public bool IsRunStoppingNow => isRunStoppingNow;
     public float RunStopSpeedNormalized => runStopSpeedNormalized;
 
+    private struct ExternalMoveSpeedMultiplierEntry
+    {
+        public float Multiplier;
+        public string Reason;
+    }
+
+    private readonly Dictionary<object, ExternalMoveSpeedMultiplierEntry> externalMoveSpeedMultipliers = new Dictionary<object, ExternalMoveSpeedMultiplierEntry>();
+    private float targetExternalMoveSpeedMultiplier = 1f;
+    private float currentExternalMoveSpeedMultiplier = 1f;
+
     public Rigidbody RigidbodyComponent => rb;
     public CapsuleCollider CapsuleColliderComponent => col;
     public SurfaceContacts25D LastSurfaceContacts => lastContacts;
@@ -432,6 +459,9 @@ public sealed class RBCharacter25D : MonoBehaviour
     public FacingOverrideSource25D CurrentFacingOverrideSource => facingResolver != null ? facingResolver.CurrentOverrideSource : FacingOverrideSource25D.None;
     public CharacterFacingResolver25D FacingResolverComponent => facingResolver;
     public float MoveInputY => externalMoveY;
+    public float CurrentExternalMoveSpeedMultiplier => currentExternalMoveSpeedMultiplier;
+    public float TargetExternalMoveSpeedMultiplier => targetExternalMoveSpeedMultiplier;
+    public bool HasExternalMoveSpeedMultiplier => externalMoveSpeedMultipliers.Count > 0;
 
     private void Awake()
     {
@@ -610,6 +640,8 @@ public sealed class RBCharacter25D : MonoBehaviour
         if (!enableDoubleJumpSpeedBoost)
             state.IsDoubleJumpSpeedBoostActive = false;
 
+        UpdateExternalMoveSpeedMultiplierBlend(Time.fixedDeltaTime);
+
         currentInput.RawX = inputX;
         currentInput.RawY = externalMoveY;
         currentInput.JumpHeld = externalJumpHeld && (!IsLockStanceMovementActive || allowJumpWhileLockStance);
@@ -777,6 +809,9 @@ public sealed class RBCharacter25D : MonoBehaviour
         airShotFastFallWeight = 0f;
         airShotHorizontalRecoilWeight = 0f;
         airShotHorizontalShotSign = 0;
+        externalMoveSpeedMultipliers.Clear();
+        targetExternalMoveSpeedMultiplier = 1f;
+        currentExternalMoveSpeedMultiplier = 1f;
 
         if (facingResolver != null)
         {
@@ -807,6 +842,9 @@ public sealed class RBCharacter25D : MonoBehaviour
         deceleration = Mathf.Max(0f, deceleration);
         airControl = Mathf.Clamp01(airControl);
         airDeceleration = Mathf.Max(0f, airDeceleration);
+        minimumExternalMoveSpeedMultiplier = Mathf.Clamp(minimumExternalMoveSpeedMultiplier, 0.05f, 1f);
+        externalMoveSpeedMultiplierEnterBlendTime = Mathf.Max(0f, externalMoveSpeedMultiplierEnterBlendTime);
+        externalMoveSpeedMultiplierExitBlendTime = Mathf.Max(0f, externalMoveSpeedMultiplierExitBlendTime);
 
         doubleJumpMoveSpeedBonus = Mathf.Max(0f, doubleJumpMoveSpeedBonus);
         jumpCooldownAfterDoubleJumpLanding = Mathf.Max(0f, jumpCooldownAfterDoubleJumpLanding);
@@ -1809,12 +1847,126 @@ public sealed class RBCharacter25D : MonoBehaviour
         return worldX / slopeTangent.x;
     }
 
+    public void AddExternalMoveSpeedMultiplier(object source, float multiplier, string reason = "External")
+    {
+        if (source == null)
+            return;
+
+        multiplier = Mathf.Clamp(multiplier, minimumExternalMoveSpeedMultiplier, 1f);
+
+        string resolvedReason = string.IsNullOrWhiteSpace(reason) ? "External" : reason;
+        bool hadEntry = externalMoveSpeedMultipliers.TryGetValue(source, out ExternalMoveSpeedMultiplierEntry previousEntry);
+
+        externalMoveSpeedMultipliers[source] = new ExternalMoveSpeedMultiplierEntry
+        {
+            Multiplier = multiplier,
+            Reason = resolvedReason
+        };
+
+        RecalculateTargetExternalMoveSpeedMultiplier();
+
+        if (logExternalMoveSpeedMultipliers && (!hadEntry || Mathf.Abs(previousEntry.Multiplier - multiplier) > 0.0001f || previousEntry.Reason != resolvedReason))
+        {
+            Debug.Log(
+                $"[RBCharacter25D] External move speed multiplier added/updated\n" +
+                $"Character: {name}\n" +
+                $"Source: {source}\n" +
+                $"Multiplier: {multiplier:0.00}\n" +
+                $"Reason: {resolvedReason}\n" +
+                $"TargetMultiplier: {targetExternalMoveSpeedMultiplier:0.00}",
+                this);
+        }
+    }
+
+    public void RemoveExternalMoveSpeedMultiplier(object source)
+    {
+        if (source == null)
+            return;
+
+        if (!externalMoveSpeedMultipliers.Remove(source))
+            return;
+
+        RecalculateTargetExternalMoveSpeedMultiplier();
+
+        if (logExternalMoveSpeedMultipliers)
+        {
+            Debug.Log(
+                $"[RBCharacter25D] External move speed multiplier removed\n" +
+                $"Character: {name}\n" +
+                $"Source: {source}\n" +
+                $"TargetMultiplier: {targetExternalMoveSpeedMultiplier:0.00}",
+                this);
+        }
+    }
+
+    public void ClearExternalMoveSpeedMultipliers()
+    {
+        if (externalMoveSpeedMultipliers.Count <= 0)
+            return;
+
+        externalMoveSpeedMultipliers.Clear();
+        RecalculateTargetExternalMoveSpeedMultiplier();
+
+        if (logExternalMoveSpeedMultipliers)
+        {
+            Debug.Log(
+                $"[RBCharacter25D] External move speed multipliers cleared\n" +
+                $"Character: {name}",
+                this);
+        }
+    }
+
+    private void RecalculateTargetExternalMoveSpeedMultiplier()
+    {
+        if (!useExternalMoveSpeedMultipliers || externalMoveSpeedMultipliers.Count <= 0)
+        {
+            targetExternalMoveSpeedMultiplier = 1f;
+            return;
+        }
+
+        float strongestMultiplier = 1f;
+
+        foreach (ExternalMoveSpeedMultiplierEntry entry in externalMoveSpeedMultipliers.Values)
+            strongestMultiplier = Mathf.Min(strongestMultiplier, entry.Multiplier);
+
+        targetExternalMoveSpeedMultiplier = Mathf.Clamp(strongestMultiplier, minimumExternalMoveSpeedMultiplier, 1f);
+    }
+
+    private void UpdateExternalMoveSpeedMultiplierBlend(float deltaTime)
+    {
+        if (!useExternalMoveSpeedMultipliers)
+        {
+            targetExternalMoveSpeedMultiplier = 1f;
+            currentExternalMoveSpeedMultiplier = 1f;
+            return;
+        }
+
+        float blendTime = targetExternalMoveSpeedMultiplier < currentExternalMoveSpeedMultiplier
+            ? externalMoveSpeedMultiplierEnterBlendTime
+            : externalMoveSpeedMultiplierExitBlendTime;
+
+        if (blendTime <= 0f || deltaTime <= 0f)
+        {
+            currentExternalMoveSpeedMultiplier = targetExternalMoveSpeedMultiplier;
+            return;
+        }
+
+        currentExternalMoveSpeedMultiplier = Mathf.MoveTowards(
+            currentExternalMoveSpeedMultiplier,
+            targetExternalMoveSpeedMultiplier,
+            deltaTime / blendTime);
+    }
+
     private float GetEffectiveMoveSpeed()
     {
-        if (!enableDoubleJumpSpeedBoost || !state.IsDoubleJumpSpeedBoostActive)
-            return moveSpeed;
+        float baseSpeed = (!enableDoubleJumpSpeedBoost || !state.IsDoubleJumpSpeedBoostActive)
+            ? moveSpeed
+            : moveSpeed + doubleJumpMoveSpeedBonus;
 
-        return moveSpeed + doubleJumpMoveSpeedBonus;
+        if (!useExternalMoveSpeedMultipliers)
+            return baseSpeed;
+
+        return baseSpeed * currentExternalMoveSpeedMultiplier;
     }
 
     private void ActivateDoubleJumpSpeedBoostIfNeeded()

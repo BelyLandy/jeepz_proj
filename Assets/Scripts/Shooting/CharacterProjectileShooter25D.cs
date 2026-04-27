@@ -47,6 +47,15 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
     [SerializeField] private bool blockShootingAfterWallJump = true;
     [SerializeField] private float wallJumpShootLockTime = 0.12f;
 
+    [Header("Projectile Hit Payload Override")]
+    [SerializeField] private bool overrideProjectileHitPayload = false;
+    [SerializeField, Min(0f)] private float projectileDamage = 10f;
+    [SerializeField, Min(0f)] private float projectileStunDuration = 0.2f;
+    [SerializeField, Min(0f)] private float projectileKnockbackHorizontal = 5f;
+    [SerializeField, Min(0f)] private float projectileKnockbackVertical = 0f;
+    [SerializeField] private bool projectileKnockbackHorizontalOnly = true;
+    [SerializeField] private bool preserveTargetVerticalVelocityOnProjectileHit = true;
+
     [Header("Impulse (Optional)")]
     [SerializeField] private bool generateImpulseOnShot = false;
     [SerializeField] private float impulseMagnitude = 0.2f;
@@ -191,6 +200,10 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
         singleJumpShootLockTime = Mathf.Max(0f, singleJumpShootLockTime);
         doubleJumpShootLockTime = Mathf.Max(0f, doubleJumpShootLockTime);
         wallJumpShootLockTime = Mathf.Max(0f, wallJumpShootLockTime);
+        projectileDamage = Mathf.Max(0f, projectileDamage);
+        projectileStunDuration = Mathf.Max(0f, projectileStunDuration);
+        projectileKnockbackHorizontal = Mathf.Max(0f, projectileKnockbackHorizontal);
+        projectileKnockbackVertical = Mathf.Max(0f, projectileKnockbackVertical);
     }
 
     private void ResolveActions(bool forceResubscribe)
@@ -473,6 +486,18 @@ public sealed class CharacterProjectileShooter25D : MonoBehaviour
         Quaternion shotRotation = Quaternion.Euler(0f, 0f, DirectionToWorldZAngleDeg(shotDirection));
         StraightProjectile projectileInstance = Instantiate(projectilePrefab, sourcePoint.position, shotRotation, projectileParent);
         projectileInstance.SetOwnerRoot(transform.root);
+
+        if (overrideProjectileHitPayload)
+        {
+            projectileInstance.InitializeHitPayload(
+                projectileDamage,
+                projectileStunDuration,
+                projectileKnockbackHorizontal,
+                projectileKnockbackVertical,
+                projectileKnockbackHorizontalOnly,
+                preserveTargetVerticalVelocityOnProjectileHit);
+        }
+
         projectileInstance.Launch(shotDirection);
     }
 
